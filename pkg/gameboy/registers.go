@@ -32,10 +32,22 @@ func set_word(r *[2]uint8, val uint16) {
 }
 
 func (r *registers) getZ() bool {
-	return r.AF[1]&0b0100_0000 != 0
+	return r.AF[1]&0b1000_0000 != 0
 }
 
 func (r *registers) setZ(val bool) {
+	if val {
+		r.AF[1] |= 0b1000_0000
+	} else {
+		r.AF[1] |= 0b0111_1111
+	}
+}
+
+func (r *registers) getN() bool {
+	return r.AF[1]&0b0100_0000 != 0
+}
+
+func (r *registers) setN(val bool) {
 	if val {
 		r.AF[1] |= 0b0100_0000
 	} else {
@@ -43,23 +55,23 @@ func (r *registers) setZ(val bool) {
 	}
 }
 
-func (r *registers) getN() bool {
+func (r *registers) getH() bool {
 	return r.AF[1]&0b0010_0000 != 0
 }
 
-func (r *registers) setN(val bool) {
+func (r *registers) setH(val bool) {
 	if val {
 		r.AF[1] |= 0b0010_0000
 	} else {
-		r.AF[1] |= 0b1011_1111
+		r.AF[1] |= 0b1101_1111
 	}
 }
 
-func (r *registers) getH() bool {
+func (r *registers) getC() bool {
 	return r.AF[1]&0b0001_0000 != 0
 }
 
-func (r *registers) setH(val bool) {
+func (r *registers) setC(val bool) {
 	if val {
 		r.AF[1] |= 0b0001_0000
 	} else {
@@ -67,14 +79,9 @@ func (r *registers) setH(val bool) {
 	}
 }
 
-func (r *registers) getC() bool {
-	return r.AF[1]&0b0000_1000 != 0
-}
-
-func (r *registers) setC(val bool) {
-	if val {
-		r.AF[1] |= 0b0000_1000
-	} else {
-		r.AF[1] |= 0b1111_0111
+func (r *registers) getCarryValue() uint8 {
+	if r.getC() {
+		return 1
 	}
+	return 0
 }
