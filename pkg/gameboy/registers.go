@@ -6,6 +6,13 @@ type registers struct {
 	AF, BC, DE, HL, SP [2]uint8
 }
 
+func (regs *registers) setFlags(Z, N, H, C bool) {
+	regs.setZ(Z)
+	regs.setN(N)
+	regs.setH(H)
+	regs.setC(C)
+}
+
 func (regs *registers) getZ() bool {
 	return regs.AF[0]&0b1000_0000 != 0
 }

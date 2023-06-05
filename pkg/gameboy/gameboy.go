@@ -268,7 +268,136 @@ func (gb *gameboy) execNextInstr() int {
 		return loadR8R8(&gb.regs.HL[0], &gb.regs.AF[1])
 	case 0x7F:
 		return loadR8R8(&gb.regs.AF[1], &gb.regs.AF[1])
+	case 0x80:
+		return gb.regs.addR8(gb.regs.BC[1])
+	case 0x90:
+		return gb.regs.subR8(gb.regs.BC[1])
+	case 0xA0:
+		return gb.regs.andR8(gb.regs.BC[1])
+	case 0xB0:
+		return gb.regs.orR8(gb.regs.BC[1])
+	case 0x81:
+		return gb.regs.addR8(gb.regs.BC[0])
+	case 0x91:
+		return gb.regs.subR8(gb.regs.BC[0])
+	case 0xA1:
+		return gb.regs.andR8(gb.regs.BC[0])
+	case 0xB1:
+		return gb.regs.orR8(gb.regs.BC[0])
+	case 0x82:
+		return gb.regs.addR8(gb.regs.DE[1])
+	case 0x92:
+		return gb.regs.subR8(gb.regs.DE[1])
+	case 0xA2:
+		return gb.regs.andR8(gb.regs.DE[1])
+	case 0xB2:
+		return gb.regs.orR8(gb.regs.DE[1])
+	case 0x83:
+		return gb.regs.addR8(gb.regs.DE[0])
+	case 0x93:
+		return gb.regs.subR8(gb.regs.DE[0])
+	case 0xA3:
+		return gb.regs.andR8(gb.regs.DE[0])
+	case 0xB3:
+		return gb.regs.orR8(gb.regs.DE[0])
+	case 0x84:
+		return gb.regs.addR8(gb.regs.HL[1])
+	case 0x94:
+		return gb.regs.subR8(gb.regs.HL[1])
+	case 0xA4:
+		return gb.regs.andR8(gb.regs.HL[1])
+	case 0xB4:
+		return gb.regs.orR8(gb.regs.HL[1])
+	case 0x85:
+		return gb.regs.addR8(gb.regs.HL[0])
+	case 0x95:
+		return gb.regs.subR8(gb.regs.HL[0])
+	case 0xA5:
+		return gb.regs.andR8(gb.regs.HL[0])
+	case 0xB5:
+		return gb.regs.orR8(gb.regs.HL[0])
+	case 0x86:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.addR8)
+	case 0x96:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.subR8)
+	case 0xA6:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.andR8)
+	case 0xB6:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.orR8)
+	case 0x87:
+		return gb.regs.addR8(gb.regs.AF[1])
+	case 0x97:
+		return gb.regs.subR8(gb.regs.AF[1])
+	case 0xA7:
+		return gb.regs.andR8(gb.regs.AF[1])
+	case 0xB7:
+		return gb.regs.orR8(gb.regs.AF[1])
+	case 0x88:
+		return gb.regs.adcR8(gb.regs.BC[1])
+	case 0x98:
+		return gb.regs.sbcR8(gb.regs.BC[1])
+	case 0xA8:
+		return gb.regs.xorR8(gb.regs.BC[1])
+	case 0xB8:
+		return gb.regs.cpR8(gb.regs.BC[1])
+	case 0x89:
+		return gb.regs.adcR8(gb.regs.BC[0])
+	case 0x99:
+		return gb.regs.sbcR8(gb.regs.BC[0])
+	case 0xA9:
+		return gb.regs.xorR8(gb.regs.BC[0])
+	case 0xB9:
+		return gb.regs.cpR8(gb.regs.BC[0])
+	case 0x8A:
+		return gb.regs.adcR8(gb.regs.DE[1])
+	case 0x9A:
+		return gb.regs.sbcR8(gb.regs.DE[1])
+	case 0xAA:
+		return gb.regs.xorR8(gb.regs.DE[1])
+	case 0xBA:
+		return gb.regs.cpR8(gb.regs.DE[1])
+	case 0x8B:
+		return gb.regs.adcR8(gb.regs.DE[0])
+	case 0x9B:
+		return gb.regs.sbcR8(gb.regs.DE[0])
+	case 0xAB:
+		return gb.regs.xorR8(gb.regs.DE[0])
+	case 0xBB:
+		return gb.regs.cpR8(gb.regs.DE[0])
+	case 0x8C:
+		return gb.regs.adcR8(gb.regs.HL[1])
+	case 0x9C:
+		return gb.regs.sbcR8(gb.regs.HL[1])
+	case 0xAC:
+		return gb.regs.xorR8(gb.regs.HL[1])
+	case 0xBC:
+		return gb.regs.cpR8(gb.regs.HL[1])
+	case 0x8D:
+		return gb.regs.adcR8(gb.regs.HL[0])
+	case 0x9D:
+		return gb.regs.sbcR8(gb.regs.HL[0])
+	case 0xAD:
+		return gb.regs.xorR8(gb.regs.HL[0])
+	case 0xBD:
+		return gb.regs.cpR8(gb.regs.HL[0])
+	case 0x8E:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.adcR8)
+	case 0x9E:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.sbcR8)
+	case 0xAE:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.xorR8)
+	case 0xBE:
+		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.cpR8)
+	case 0x8F:
+		return gb.regs.adcR8(gb.regs.AF[1])
+	case 0x9F:
+		return gb.regs.sbcR8(gb.regs.AF[1])
+	case 0xAF:
+		return gb.regs.xorR8(gb.regs.AF[1])
+	case 0xBF:
+		return gb.regs.cpR8(gb.regs.AF[1])
 	}
+
 	return -1
 }
 
@@ -403,20 +532,83 @@ func (gb *gameboy) decM8(adr uint16) int {
 	return 3
 }
 
-// addR8R8 add the contents of one 8-bit register to another
-func (gb *gameboy) addR8R8(reg1, reg2 *uint8) int {
-
-	return 1
-}
-
 // addR16R16 add the contents of one 16-bit register pair to another
 func (regs *registers) addR16R16(reg1, reg2 *[2]uint8) int {
 	a := getWord(reg1)
 	b := getWord(reg2)
 	regs.setH(halfCarryAddCheck16Bit(a, b))
-	regs.setC(CarryAddCheck16Bit(a, b))
+	regs.setC(a+b < a)
 	regs.setN(false)
 	setWord(reg1, a+b)
+	return 2
+}
+
+// addR8 add the 8-bit value of a register to A
+func (regs *registers) addR8(val uint8) int {
+	a := regs.AF[1]
+	regs.setFlags(a+val == 0, false, halfCarryAddCheck8Bit(a, val), a+val < a)
+	regs.AF[1] += val
+	return 1
+}
+
+// adcR8 add the 8-bit value of a register to A
+func (regs *registers) adcR8(val uint8) int {
+	if regs.getC() {
+		return regs.addR8(val + 1)
+	}
+	return regs.addR8(val)
+}
+
+// subR8 subtract the 8-bit value of a register from A
+func (regs *registers) subR8(val uint8) int {
+	a := regs.AF[1]
+	regs.setFlags(a+val == 0, false, halfCarrySubCheck8Bit(a, val), a-val > a)
+	regs.AF[1] -= val
+	return 1
+}
+
+// sbcR8 subtract the 8-bit value of a register from A
+func (regs *registers) sbcR8(val uint8) int {
+	if regs.getC() {
+		return regs.subR8(val + 1)
+	}
+	return regs.subR8(val)
+}
+
+// andR8 logical AND the 8-bit value of a register with A
+func (regs *registers) andR8(val uint8) int {
+	regs.AF[1] &= val
+	regs.setFlags(regs.AF[1] == 0, false, true, false)
+	return 1
+}
+
+// orR8 logical OR the 8-bit value of a register with A
+func (regs *registers) orR8(val uint8) int {
+	regs.AF[1] |= val
+	regs.setFlags(regs.AF[1] == 0, false, false, false)
+	return 1
+}
+
+// xorR8 logical XOR the 8-bit value of a register with A
+func (regs *registers) xorR8(val uint8) int {
+	regs.AF[1] ^= val
+	regs.setFlags(regs.AF[1] == 0, false, false, false)
+	return 1
+}
+
+// cpR8 compare the 8-bit value of a register with A
+func (regs *registers) cpR8(val uint8) int {
+	a := regs.AF[1]
+	regs.setFlags(a+val == 0, false, halfCarrySubCheck8Bit(a, val), a-val > a)
+	return 1
+}
+
+// function definition of an 8-bit alu function
+type aluR8Def func(uint8) int
+
+// aluM8 executes an 8-bit alu function with the value from the given memory address
+func (gb *gameboy) aluM8(adr uint16, aluFunc aluR8Def) int {
+	aluFunc(gb.mem.load(adr))
 	return 2
 }
 
@@ -540,24 +732,4 @@ func halfCarrySubCheck8Bit(a, b uint8) bool {
 
 func halfCarryAddCheck16Bit(a, b uint16) bool {
 	return (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10
-}
-
-func halfCarrySubCheck16Bit(a, b uint16) bool {
-	return (((a & 0xf) - (b & 0xf)) & 0x10) == 0x10
-}
-
-func CarryAddCheck8Bit(a, b uint8) bool {
-	return a+b < a
-}
-
-func CarryAddCheck16Bit(a, b uint16) bool {
-	return a+b < a
-}
-
-func CarrySubCheck8Bit(a, b uint16) bool {
-	return a-b > a
-}
-
-func CarrySubCheck16Bit(a, b uint16) bool {
-	return a-b > a
 }
