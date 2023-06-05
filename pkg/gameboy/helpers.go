@@ -6,6 +6,12 @@ func getWord(r *[2]uint8) uint16 {
 	return val
 }
 
+// get the combined register
+func getWordFromBytes(hi, lo uint8) uint16 {
+	val := uint16(lo) | (uint16(hi) << 8)
+	return val
+}
+
 func setWord(r *[2]uint8, val uint16) {
 	r[0] = uint8(val)
 	r[1] = uint8(val >> 8)

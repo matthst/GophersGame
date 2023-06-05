@@ -12,9 +12,9 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x10:
 		return stop()
 	case 0x20:
-		return gb.JumpI8(!gb.regs.getZ())
+		return gb.JumpRelativeI8(!gb.regs.getZ())
 	case 0x30:
-		return gb.JumpI8(!gb.regs.getN())
+		return gb.JumpRelativeI8(!gb.regs.getN())
 	case 0x01:
 		return gb.loadI16(&gb.regs.BC)
 	case 0x11:
@@ -74,11 +74,11 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x08:
 		return gb.storeSPI16()
 	case 0x18:
-		return gb.JumpI8(true)
+		return gb.JumpRelativeI8(true)
 	case 0x28:
-		return gb.JumpI8(gb.regs.getZ())
+		return gb.JumpRelativeI8(gb.regs.getZ())
 	case 0x38:
-		return gb.JumpI8(gb.regs.getC())
+		return gb.JumpRelativeI8(gb.regs.getC())
 	case 0x09:
 		return gb.regs.addR16R16(&gb.regs.HL, &gb.regs.BC)
 	case 0x19:
@@ -391,11 +391,39 @@ func (gb *gameboy) execNextInstr() int {
 		return gb.regs.xorR8(gb.regs.AF[1])
 	case 0xBF:
 		return gb.regs.cpR8(gb.regs.AF[1])
-
+	case 0xC0:
+		return gb.ret(!gb.regs.getZ())
+	case 0xD0:
+		return gb.ret(!gb.regs.getC())
+	case 0xE0:
+		return gb.storeAI8()
+	case 0xF0:
+		return gb.loadAI8()
+	case 0xC1:
+		return gb.pop(&gb.regs.BC)
+	case 0xD1:
+		return gb.pop(&gb.regs.DE)
+	case 0xE1:
+		return gb.pop(&gb.regs.HL)
+	case 0xF1:
+		return gb.pop(&gb.regs.AF)
+	case 0xC2:
+		return gb.JumpI16(!gb.regs.getZ())
+	case 0xD2:
+		return gb.JumpI16(!gb.regs.getC())
+	case 0xE2:
+		return gb.storeAC()
+	case 0xF2:
+		return gb.loadAC()
+	case 0xC3:
+		return gb.JumpI16(true)
+	case 0xF3:
+		return disableInterrupts()
 	case 0xCB:
 		return gb.execCBInstr()
 	}
 
+	// TODO throw exception
 	return -1
 }
 
@@ -424,14 +452,46 @@ func halt() int {
 	return 1
 }
 
+func disableInterrupts() int {
+	// TODO
+
+	return 1
+}
+
 // JumpI8 conditional jump
-func (gb *gameboy) JumpI8(flag bool) int {
+func (gb *gameboy) JumpI16(flag bool) int {
+	lo := gb.getImmediate()
+	hi := gb.getImmediate()
+	if flag {
+		gb.regs.PC = getWordFromBytes(hi, lo)
+		return 4
+	}
+	return 3
+}
+
+// JumpRelativeI8 relative conditional jump
+func (gb *gameboy) JumpRelativeI8(flag bool) int {
 	im8 := gb.getImmediate()
 	if flag {
 		gb.regs.PC += uint16(im8)
 		return 3
 	}
 	return 2
+}
+
+func (gb *gameboy) ret(cond bool) int {
+	if cond {
+		P := gb.mem.load(getWordInc(&gb.regs.SP))
+		S := gb.mem.load(getWordInc(&gb.regs.SP))
+		gb.regs.PC = getWordFromBytes(S, P)
+		return 5
+	}
+	return 2
+}
+
+func (gb *gameboy) call(cond bool) int {
+
+	return 6
 }
 
 // loadI8 load an 8-bit immediate into a register
@@ -459,6 +519,20 @@ func (gb *gameboy) loadR8(reg *uint8, adr uint16) int {
 	return 2
 }
 
+// loadAI8 load the content of an address in the block 0xFF00 - 0xFFFF given by an i8 into register A
+func (gb *gameboy) loadAI8() int {
+	adr := uint16(0xFF00) | uint16(gb.getImmediate())
+	gb.regs.AF[1] = gb.mem.load(adr)
+	return 3
+}
+
+// loadAC load the content of an address in the block 0xFF00 - 0xFFFF given by register C into register A
+func (gb *gameboy) loadAC() int {
+	adr := uint16(0xFF00) | uint16(gb.regs.BC[0])
+	gb.regs.AF[1] = gb.mem.load(adr)
+	return 2
+}
+
 // storeR8 store the content of register at regVal in the address specified by RegAdr.
 func (gb *gameboy) storeR8(val uint8, adr uint16) int {
 	gb.mem.store(val, adr)
@@ -477,6 +551,27 @@ func (gb *gameboy) storeSPI16() int {
 // storeI8 store the immediate 8-bit value into the memory address specified by the 16-bit register
 func (gb *gameboy) storeI8(reg *[2]uint8) int {
 	gb.mem.store(gb.getImmediate(), getWord(reg))
+	return 3
+}
+
+// storeAI8 store the content of register A in an address in the block 0xFF00 - 0xFFFF given by an i8
+func (gb *gameboy) storeAI8() int {
+	adr := uint16(0xFF00) | uint16(gb.getImmediate())
+	gb.mem.store(gb.regs.AF[1], adr)
+	return 3
+}
+
+// storeAC store the content of register A in an address in the block 0xFF00 - 0xFFFF given by C
+func (gb *gameboy) storeAC() int {
+	adr := uint16(0xFF00) | uint16(gb.regs.BC[0])
+	gb.mem.store(gb.regs.AF[1], adr)
+	return 2
+}
+
+// pop load a 16bit value from memory and increment the stack pointer during the load (twice in total)
+func (gb *gameboy) pop(reg *[2]uint8) int {
+	reg[0] = gb.mem.load(getWordInc(&gb.regs.SP))
+	reg[1] = gb.mem.load(getWordInc(&gb.regs.SP))
 	return 3
 }
 
