@@ -1,15 +1,18 @@
 package gameboy
 
-// get the combined register
+// getWord get word from size 2 uint8 array
 func getWord(r *[2]uint8) uint16 {
-	val := uint16(r[0]) | (uint16(r[1]) << 8)
-	return val
+	return getWordFromBytes(r[1], r[0])
 }
 
-// get the combined register
+// get Word from 2 uint8 values
 func getWordFromBytes(hi, lo uint8) uint16 {
-	val := uint16(lo) | (uint16(hi) << 8)
-	return val
+	return uint16(lo) | (uint16(hi) << 8)
+}
+
+// get bytes from word, returns hi, lo
+func getBytesFromWord(word uint16) (uint8, uint8) {
+	return uint8(word >> 8), uint8(word)
 }
 
 func setWord(r *[2]uint8, val uint16) {

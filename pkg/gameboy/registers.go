@@ -2,8 +2,8 @@ package gameboy
 
 // for the size-2 arrays, the first val is lo, the second is hi
 type registers struct {
-	PC                 uint16
-	AF, BC, DE, HL, SP [2]uint8
+	PC, SP         uint16
+	AF, BC, DE, HL [2]uint8
 }
 
 func (regs *registers) getHL() uint16 {

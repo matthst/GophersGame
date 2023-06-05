@@ -22,7 +22,7 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x21:
 		return gb.loadI16(&gb.regs.HL)
 	case 0x31:
-		return gb.loadI16(&gb.regs.SP)
+		return gb.loadI16SP()
 	case 0x02:
 		return gb.storeR8(gb.regs.AF[1], getWord(&gb.regs.BC))
 	case 0x12:
@@ -38,7 +38,7 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x23:
 		return incR16(&gb.regs.HL)
 	case 0x33:
-		return incR16(&gb.regs.SP)
+		return gb.regs.incSP()
 	case 0x04:
 		return gb.regs.incR8(&gb.regs.BC[1])
 	case 0x14:
@@ -80,13 +80,13 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x38:
 		return gb.JumpRelativeI8(gb.regs.getC())
 	case 0x09:
-		return gb.regs.addR16R16(&gb.regs.HL, &gb.regs.BC)
+		return gb.regs.addR16R16(&gb.regs.HL, getWord(&gb.regs.BC))
 	case 0x19:
-		return gb.regs.addR16R16(&gb.regs.HL, &gb.regs.DE)
+		return gb.regs.addR16R16(&gb.regs.HL, getWord(&gb.regs.DE))
 	case 0x29:
-		return gb.regs.addR16R16(&gb.regs.HL, &gb.regs.HL)
+		return gb.regs.addR16R16(&gb.regs.HL, getWord(&gb.regs.HL))
 	case 0x39:
-		return gb.regs.addR16R16(&gb.regs.HL, &gb.regs.SP)
+		return gb.regs.addR16R16(&gb.regs.HL, gb.regs.SP)
 	case 0x0A:
 		return gb.loadR8(&gb.regs.AF[1], getWord(&gb.regs.BC))
 	case 0x1A:
@@ -102,7 +102,7 @@ func (gb *gameboy) execNextInstr() int {
 	case 0x2B:
 		return decR16(&gb.regs.HL)
 	case 0x3B:
-		return decR16(&gb.regs.SP)
+		return gb.regs.decSP()
 	case 0x0C:
 		return gb.regs.incR8(&gb.regs.BC[0])
 	case 0x1C:
@@ -419,6 +419,10 @@ func (gb *gameboy) execNextInstr() int {
 		return gb.JumpI16(true)
 	case 0xF3:
 		return disableInterrupts()
+	case 0xC4:
+		return gb.call(!gb.regs.getZ())
+	case 0xD4:
+		return gb.call(!gb.regs.getC())
 	case 0xCB:
 		return gb.execCBInstr()
 	}
@@ -458,7 +462,7 @@ func disableInterrupts() int {
 	return 1
 }
 
-// JumpI8 conditional jump
+// JumpI16 conditional jump
 func (gb *gameboy) JumpI16(flag bool) int {
 	lo := gb.getImmediate()
 	hi := gb.getImmediate()
@@ -481,8 +485,10 @@ func (gb *gameboy) JumpRelativeI8(flag bool) int {
 
 func (gb *gameboy) ret(cond bool) int {
 	if cond {
-		P := gb.mem.load(getWordInc(&gb.regs.SP))
-		S := gb.mem.load(getWordInc(&gb.regs.SP))
+		P := gb.mem.load(gb.regs.SP)
+		gb.regs.SP++
+		S := gb.mem.load(gb.regs.SP)
+		gb.regs.SP++
 		gb.regs.PC = getWordFromBytes(S, P)
 		return 5
 	}
@@ -490,8 +496,18 @@ func (gb *gameboy) ret(cond bool) int {
 }
 
 func (gb *gameboy) call(cond bool) int {
-
-	return 6
+	lo := gb.getImmediate()
+	hi := gb.getImmediate()
+	if cond {
+		p, c := getBytesFromWord(gb.regs.PC)
+		gb.mem.store(p, gb.regs.SP)
+		gb.regs.SP--
+		gb.mem.store(c, gb.regs.SP)
+		gb.regs.SP--
+		gb.regs.PC = getWordFromBytes(hi, lo)
+		return 6
+	}
+	return 3
 }
 
 // loadI8 load an 8-bit immediate into a register
@@ -510,6 +526,13 @@ func loadR8R8(r1, r2 *uint8) int {
 func (gb *gameboy) loadI16(reg *[2]uint8) int {
 	reg[0] = gb.getImmediate()
 	reg[1] = gb.getImmediate()
+	return 3
+}
+
+func (gb *gameboy) loadI16SP() int {
+	lo := gb.getImmediate()
+	hi := gb.getImmediate()
+	gb.regs.SP = getWordFromBytes(hi, lo)
 	return 3
 }
 
@@ -543,8 +566,9 @@ func (gb *gameboy) storeR8(val uint8, adr uint16) int {
 func (gb *gameboy) storeSPI16() int {
 	adr := uint16(gb.getImmediate())
 	adr += uint16(gb.getImmediate()) << 8
-	gb.mem.store(gb.regs.SP[0], adr)
-	gb.mem.store(gb.regs.SP[1], adr+1)
+	S, P := getBytesFromWord(gb.regs.SP)
+	gb.mem.store(P, adr)
+	gb.mem.store(S, adr+1)
 	return 5
 }
 
@@ -568,16 +592,32 @@ func (gb *gameboy) storeAC() int {
 	return 2
 }
 
+func (gb *gameboy) push(reg *[2]uint8) int {
+	gb.mem.store(reg[1], gb.regs.SP)
+	gb.regs.SP++
+	gb.mem.store(reg[0], gb.regs.SP)
+	gb.regs.SP++
+	return 4
+}
+
 // pop load a 16bit value from memory and increment the stack pointer during the load (twice in total)
 func (gb *gameboy) pop(reg *[2]uint8) int {
-	reg[0] = gb.mem.load(getWordInc(&gb.regs.SP))
-	reg[1] = gb.mem.load(getWordInc(&gb.regs.SP))
+	reg[0] = gb.mem.load(gb.regs.SP)
+	gb.regs.SP++
+	reg[1] = gb.mem.load(gb.regs.SP)
+	gb.regs.SP++
 	return 3
 }
 
 // incR16 increments a combine 16-bit register.
 func incR16(reg *[2]uint8) int {
 	setWord(reg, getWord(reg)+1)
+	return 2
+}
+
+// incSP increments a combine 16-bit register.
+func (regs *registers) incSP() int {
+	regs.SP++
 	return 2
 }
 
@@ -607,6 +647,12 @@ func decR16(reg *[2]uint8) int {
 	return 2
 }
 
+// decSP increments a combine 16-bit register.
+func (regs *registers) decSP() int {
+	regs.SP--
+	return 2
+}
+
 // decR8 decrement the given 8-bit register
 func (regs *registers) decR8(reg *uint8) int {
 	regs.setN(true)
@@ -628,13 +674,13 @@ func (gb *gameboy) decM8(adr uint16) int {
 }
 
 // addR16R16 add the contents of one 16-bit register pair to another
-func (regs *registers) addR16R16(reg1, reg2 *[2]uint8) int {
-	a := getWord(reg1)
-	b := getWord(reg2)
-	regs.setH(halfCarryAddCheck16Bit(a, b))
-	regs.setC(a+b < a)
+func (regs *registers) addR16R16(reg *[2]uint8, val uint16) int {
+	a := getWord(reg)
+
+	regs.setH(halfCarryAddCheck16Bit(a, val))
+	regs.setC(a+val < a)
 	regs.setN(false)
-	setWord(reg1, a+b)
+	setWord(reg, a+val)
 	return 2
 }
 
