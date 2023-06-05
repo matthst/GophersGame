@@ -23,26 +23,50 @@ func getWordDec(r *[2]uint8) uint16 {
 	return val
 }
 
-func (regs *registers) rotateLeftInternal(reg *uint8) {
-	val := (*reg << 1) + regs.getCarryValue()
-	regs.AF[0] = 0b0000_0000 + ((*reg >> 7) << 4)
-	*reg = val
+// aluR8Def function definition for the internal helpers used for the 0xCB shift functions
+type shiftInternalFuncDef func(uint8) uint8
+
+func (regs *registers) rotateLeftInternal(val uint8) uint8 {
+	result := (val << 1) + regs.getCarryValue()
+	regs.AF[0] = 0b0000_0000 + ((val >> 7) << 4)
+	return result
 }
 
-func (regs *registers) rotateLeftCircularInternal(reg *uint8) {
-	regs.AF[0] = 0b0000_0000 + ((*reg >> 7) << 4)
-	*reg = (*reg << 1) + (*reg >> 7)
+func (regs *registers) rotateLeftCircularInternal(val uint8) uint8 {
+	regs.AF[0] = 0b0000_0000 + ((val >> 7) << 4)
+	return (val << 1) + (val >> 7)
 }
 
-func (regs *registers) rotateRightInternal(reg *uint8) {
-	val := (*reg >> 1) + (regs.getCarryValue() << 7)
-	regs.AF[0] = 0b0000_0000 + ((*reg & 0x1) << 4)
-	*reg = val
+func (regs *registers) rotateRightInternal(val uint8) uint8 {
+	result := (val >> 1) + (regs.getCarryValue() << 7)
+	regs.AF[0] = 0b0000_0000 + ((val & 0x1) << 4)
+	return result
 }
 
-func (regs *registers) rotateRightCircularInternal(reg *uint8) {
-	regs.AF[0] = 0b0000_0000 + ((*reg & 0x1) << 4)
-	*reg = (*reg >> 1) + (*reg << 7)
+func (regs *registers) rotateRightCircularInternal(val uint8) uint8 {
+	regs.AF[0] = 0b0000_0000 + ((val & 0x1) << 4)
+	return (val >> 1) + (val << 7)
+}
+
+func (regs *registers) shiftLeftInternal(val uint8) uint8 {
+	regs.AF[0] = 0b0000_0000 + ((val >> 7) << 4)
+	return val << 1
+}
+
+func (regs *registers) shiftRightInternal(val uint8) uint8 {
+	regs.AF[0] = 0b0000_0000 + ((val & 0x1) << 4)
+	return (val >> 1) | (val & 0b1000_0000)
+}
+
+func (regs *registers) shiftRightMSBResetInternal(val uint8) uint8 {
+	regs.AF[0] = 0b0000_0000 + ((val & 0x1) << 4)
+	return val >> 1
+}
+
+func (regs *registers) swapInternal(val uint8) uint8 {
+	regs.AF[0] = 0
+	regs.setZ(val == 0)
+	return (val >> 4) + (val << 4)
 }
 
 func halfCarryAddCheck8Bit(a, b uint8) bool {

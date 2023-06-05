@@ -393,7 +393,7 @@ func (gb *gameboy) execNextInstr() int {
 		return gb.regs.cpR8(gb.regs.AF[1])
 
 	case 0xCB:
-		return -1
+		return gb.execCBInstr()
 	}
 
 	return -1
@@ -614,31 +614,31 @@ func (gb *gameboy) aluM8(adr uint16, aluFunc aluR8Def) int {
 
 // complementR8 bit-swap the register
 func complementR8(r *uint8) int {
-	*r ^= 0
+	*r = ^*r
 	return 1
 }
 
 // rotateLeftCircularA circular rotate register A left
 func (regs *registers) rotateLeftCircularA() int {
-	regs.rotateLeftCircularInternal(&regs.AF[1])
+	regs.AF[1] = regs.rotateLeftCircularInternal(regs.AF[1])
 	return 1
 }
 
 // rotateLeftA rotate register A left
 func (regs *registers) rotateLeftA() int {
-	regs.rotateLeftInternal(&regs.AF[1])
+	regs.AF[1] = regs.rotateLeftInternal(regs.AF[1])
 	return 1
 }
 
 // rotateRightCircularA circular rotate register A left
 func (regs *registers) rotateRightCircularA() int {
-	regs.rotateRightCircularInternal(&regs.AF[1])
+	regs.AF[1] = regs.rotateRightCircularInternal(regs.AF[1])
 	return 1
 }
 
 // rotateRightA rotate register A left
 func (regs *registers) rotateRightA() int {
-	regs.rotateRightInternal(&regs.AF[1])
+	regs.AF[1] = regs.rotateRightInternal(regs.AF[1])
 	return 1
 }
 
