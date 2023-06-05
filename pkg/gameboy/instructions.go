@@ -312,13 +312,13 @@ func (gb *gameboy) execNextInstr() int {
 	case 0xB5:
 		return gb.regs.orR8(gb.regs.HL[0])
 	case 0x86:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.addR8)
+		return gb.aluM8(gb.regs.addR8)
 	case 0x96:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.subR8)
+		return gb.aluM8(gb.regs.subR8)
 	case 0xA6:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.andR8)
+		return gb.aluM8(gb.regs.andR8)
 	case 0xB6:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.orR8)
+		return gb.aluM8(gb.regs.orR8)
 	case 0x87:
 		return gb.regs.addR8(gb.regs.AF[1])
 	case 0x97:
@@ -376,13 +376,13 @@ func (gb *gameboy) execNextInstr() int {
 	case 0xBD:
 		return gb.regs.cpR8(gb.regs.HL[0])
 	case 0x8E:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.adcR8)
+		return gb.aluM8(gb.regs.adcR8)
 	case 0x9E:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.sbcR8)
+		return gb.aluM8(gb.regs.sbcR8)
 	case 0xAE:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.xorR8)
+		return gb.aluM8(gb.regs.xorR8)
 	case 0xBE:
-		return gb.aluM8(getWord(&gb.regs.HL), gb.regs.cpR8)
+		return gb.aluM8(gb.regs.cpR8)
 	case 0x8F:
 		return gb.regs.adcR8(gb.regs.AF[1])
 	case 0x9F:
@@ -423,6 +423,46 @@ func (gb *gameboy) execNextInstr() int {
 		return gb.call(!gb.regs.getZ())
 	case 0xD4:
 		return gb.call(!gb.regs.getC())
+	case 0xC6:
+		return gb.aluI8(gb.regs.addR8)
+	case 0xD6:
+		return gb.aluI8(gb.regs.subR8)
+	case 0xE6:
+		return gb.aluI8(gb.regs.andR8)
+	case 0xF6:
+		return gb.aluI8(gb.regs.orR8)
+	case 0xC7:
+		return gb.rst(0x00)
+	case 0xD7:
+		return gb.rst(0x10)
+	case 0xE7:
+		return gb.rst(0x20)
+	case 0xF7:
+		return gb.rst(0x30)
+	case 0xC8:
+		return gb.ret(gb.regs.getZ())
+	case 0xD8:
+		return gb.ret(gb.regs.getC())
+	case 0xE8:
+		return gb.addSPS8()
+	case 0xF8:
+
+	case 0xCE:
+		return gb.aluM8(gb.regs.adcR8)
+	case 0xDE:
+		return gb.aluM8(gb.regs.sbcR8)
+	case 0xEE:
+		return gb.aluM8(gb.regs.xorR8)
+	case 0xFE:
+		return gb.aluM8(gb.regs.cpR8)
+	case 0xCF:
+		return gb.rst(0x08)
+	case 0xDF:
+		return gb.rst(0x18)
+	case 0xEF:
+		return gb.rst(0x28)
+	case 0xFF:
+		return gb.rst(0x38)
 	case 0xCB:
 		return gb.execCBInstr()
 	}
@@ -457,6 +497,12 @@ func halt() int {
 }
 
 func disableInterrupts() int {
+	// TODO
+
+	return 1
+}
+
+func enableInterrupts() int {
 	// TODO
 
 	return 1
@@ -508,6 +554,16 @@ func (gb *gameboy) call(cond bool) int {
 		return 6
 	}
 	return 3
+}
+
+func (gb *gameboy) rst(adr uint16) int {
+	p, c := getBytesFromWord(gb.regs.PC)
+	gb.mem.store(p, gb.regs.SP)
+	gb.regs.SP--
+	gb.mem.store(c, gb.regs.SP)
+	gb.regs.SP--
+	gb.regs.PC = adr
+	return 4
 }
 
 // loadI8 load an 8-bit immediate into a register
@@ -594,9 +650,9 @@ func (gb *gameboy) storeAC() int {
 
 func (gb *gameboy) push(reg *[2]uint8) int {
 	gb.mem.store(reg[1], gb.regs.SP)
-	gb.regs.SP++
+	gb.regs.SP--
 	gb.mem.store(reg[0], gb.regs.SP)
-	gb.regs.SP++
+	gb.regs.SP--
 	return 4
 }
 
@@ -684,6 +740,17 @@ func (regs *registers) addR16R16(reg *[2]uint8, val uint16) int {
 	return 2
 }
 
+// addSPS8 add the signed 2's complement immediate to the stack pointer
+func (gb *gameboy) addSPS8() int {
+	val := gb.getImmediate()
+	if val < 128 { // positive 2's complement value
+		gb.regs.SP += uint16(val)
+	} else { // negative 2's complement value
+		gb.regs.SP -= uint16(^val + 1)
+	} // TODO Flags
+	return 4
+}
+
 // addR8 add the 8-bit value of a register to A
 func (regs *registers) addR8(val uint8) int {
 	a := regs.AF[1]
@@ -747,9 +814,15 @@ func (regs *registers) cpR8(val uint8) int {
 // aluR8Def function definition of an 8-bit alu function
 type aluR8Def func(uint8) int
 
+// aluI8 executes an 8-bit alu function with the given immediate
+func (gb *gameboy) aluI8(aluFunc aluR8Def) int {
+	aluFunc(gb.getImmediate())
+	return 2
+}
+
 // aluM8 executes an 8-bit alu function with the value from the given memory address
-func (gb *gameboy) aluM8(adr uint16, aluFunc aluR8Def) int {
-	aluFunc(gb.mem.load(adr))
+func (gb *gameboy) aluM8(aluFunc aluR8Def) int {
+	aluFunc(gb.mem.load(gb.regs.getHL()))
 	return 2
 }
 
