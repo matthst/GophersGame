@@ -1,8 +1,8 @@
 package components
 
-type Cart interface {
+type Cartridge interface {
 	Write(val uint8, adr uint16)
-	Read(adr uint16) uint8
+	Load(adr uint16) uint8
 }
 
 type RomOnly struct {
@@ -11,7 +11,7 @@ type RomOnly struct {
 
 func (r RomOnly) Write(val uint8, adr uint16) {}
 
-func (r RomOnly) Read(adr uint16) uint8 {
+func (r RomOnly) Load(adr uint16) uint8 {
 	return r.Rom[adr]
 }
 
