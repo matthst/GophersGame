@@ -87,5 +87,5 @@ func halfCarrySubCheck8Bit(a, b uint8) bool {
 }
 
 func halfCarryAddCheck16Bit(a, b uint16) bool {
-	return (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10
+	return (((a & 0xf00) + (b & 0xf00)) & 0x1000) == 0x1000
 }

@@ -392,9 +392,9 @@ func (gb *gameboy) execNextInstr() int {
 	case 0xBF:
 		return gb.regs.cpR8(gb.regs.AF[1])
 	case 0xC0:
-		return gb.ret(!gb.regs.getZ())
+		return gb.retCond(!gb.regs.getZ())
 	case 0xD0:
-		return gb.ret(!gb.regs.getC())
+		return gb.retCond(!gb.regs.getC())
 	case 0xE0:
 		return gb.storeAI8()
 	case 0xF0:
@@ -440,13 +440,39 @@ func (gb *gameboy) execNextInstr() int {
 	case 0xF7:
 		return gb.rst(0x30)
 	case 0xC8:
-		return gb.ret(gb.regs.getZ())
+		return gb.retCond(gb.regs.getZ())
 	case 0xD8:
-		return gb.ret(gb.regs.getC())
+		return gb.retCond(gb.regs.getC())
 	case 0xE8:
-		return gb.addSPS8()
+		return gb.addSPS8SP()
 	case 0xF8:
-
+		return gb.addSPS8HL()
+	case 0xC9:
+		return gb.ret()
+	case 0xD9:
+		return gb.retInterrupt()
+	case 0xE9:
+		return gb.jumpHL()
+	case 0xF9:
+		return gb.loadHLSP()
+	case 0xCA:
+		return gb.JumpI16(gb.regs.getZ())
+	case 0xDA:
+		return gb.JumpI16(gb.regs.getC())
+	case 0xEA:
+		return gb.storeAMI16()
+	case 0xFA:
+		return gb.loadAMI16()
+	case 0xCB:
+		return gb.execCBInstr()
+	case 0xFB:
+		return enableInterrupts()
+	case 0xCC:
+		return gb.call(gb.regs.getZ())
+	case 0xDC:
+		return gb.call(gb.regs.getC())
+	case 0xCD:
+		return gb.call(true)
 	case 0xCE:
 		return gb.aluM8(gb.regs.adcR8)
 	case 0xDE:
@@ -463,10 +489,7 @@ func (gb *gameboy) execNextInstr() int {
 		return gb.rst(0x28)
 	case 0xFF:
 		return gb.rst(0x38)
-	case 0xCB:
-		return gb.execCBInstr()
 	}
-
 	// TODO throw exception
 	return -1
 }
@@ -529,7 +552,12 @@ func (gb *gameboy) JumpRelativeI8(flag bool) int {
 	return 2
 }
 
-func (gb *gameboy) ret(cond bool) int {
+func (gb *gameboy) jumpHL() int {
+	gb.regs.SP = getWord(&gb.regs.HL)
+	return 1
+}
+
+func (gb *gameboy) retCond(cond bool) int {
 	if cond {
 		P := gb.mem.load(gb.regs.SP)
 		gb.regs.SP++
@@ -539,6 +567,20 @@ func (gb *gameboy) ret(cond bool) int {
 		return 5
 	}
 	return 2
+}
+
+func (gb *gameboy) ret() int {
+	P := gb.mem.load(gb.regs.SP)
+	gb.regs.SP++
+	S := gb.mem.load(gb.regs.SP)
+	gb.regs.SP++
+	gb.regs.PC = getWordFromBytes(S, P)
+	return 4
+}
+
+func (gb *gameboy) retInterrupt() int {
+	// TODO
+	return 4
 }
 
 func (gb *gameboy) call(cond bool) int {
@@ -585,6 +627,12 @@ func (gb *gameboy) loadI16(reg *[2]uint8) int {
 	return 3
 }
 
+// loadHLSP load the value of SP into HL
+func (gb *gameboy) loadHLSP() int {
+	setWord(&gb.regs.HL, gb.regs.SP)
+	return 2
+}
+
 func (gb *gameboy) loadI16SP() int {
 	lo := gb.getImmediate()
 	hi := gb.getImmediate()
@@ -596,6 +644,14 @@ func (gb *gameboy) loadI16SP() int {
 func (gb *gameboy) loadR8(reg *uint8, adr uint16) int {
 	*reg = gb.mem.load(adr)
 	return 2
+}
+
+// loadMAI16 load an 8-bit val into A from the memory address specified by the 16-bit immediate
+func (gb *gameboy) loadAMI16() int {
+	lo := gb.getImmediate()
+	hi := gb.getImmediate()
+	gb.regs.AF[1] = gb.mem.load(getWordFromBytes(hi, lo))
+	return 4
 }
 
 // loadAI8 load the content of an address in the block 0xFF00 - 0xFFFF given by an i8 into register A
@@ -639,6 +695,14 @@ func (gb *gameboy) storeAI8() int {
 	adr := uint16(0xFF00) | uint16(gb.getImmediate())
 	gb.mem.store(gb.regs.AF[1], adr)
 	return 3
+}
+
+// storeAMI16 store an 8-bit val from A into the memory address specified by the 16-bit immediate
+func (gb *gameboy) storeAMI16() int {
+	lo := gb.getImmediate()
+	hi := gb.getImmediate()
+	gb.mem.store(gb.regs.AF[1], getWordFromBytes(hi, lo))
+	return 4
 }
 
 // storeAC store the content of register A in an address in the block 0xFF00 - 0xFFFF given by C
@@ -740,15 +804,34 @@ func (regs *registers) addR16R16(reg *[2]uint8, val uint16) int {
 	return 2
 }
 
-// addSPS8 add the signed 2's complement immediate to the stack pointer
-func (gb *gameboy) addSPS8() int {
-	val := gb.getImmediate()
-	if val < 128 { // positive 2's complement value
-		gb.regs.SP += uint16(val)
-	} else { // negative 2's complement value
-		gb.regs.SP -= uint16(^val + 1)
-	} // TODO Flags
+// addSP8SP add the signed 2's complement immediate to the stack pointer and write it to HL
+func (gb *gameboy) addSPS8SP() int {
+	gb.regs.SP = gb.addSPS8Internal()
 	return 4
+}
+
+// addSPS8HL add the signed 2's complement immediate to the stack pointer and write it to HL
+func (gb *gameboy) addSPS8HL() int {
+	setWord(&gb.regs.HL, gb.addSPS8Internal())
+	return 3
+}
+
+// addSPS8 add the signed 2's complement immediate to the stack pointer and return the value
+func (gb *gameboy) addSPS8Internal() uint16 {
+	val := gb.getImmediate()
+	P := uint8(gb.regs.SP)
+	gb.regs.setZ(false)
+	gb.regs.setN(false)
+	if val < 128 { // positive 2's complement value :=
+		gb.regs.setH(halfCarryAddCheck8Bit(P, val))
+		gb.regs.setC(P+val < P)
+		return gb.regs.SP + uint16(val)
+	}
+	// negative 2's complement value
+	val = ^val + 1 //get positive value from 2's complement signed number
+	gb.regs.setH(halfCarrySubCheck8Bit(P, val))
+	gb.regs.setC(P-val > P)
+	return gb.regs.SP - uint16(val)
 }
 
 // addR8 add the 8-bit value of a register to A
