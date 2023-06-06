@@ -22,3 +22,6 @@ go.work
 
 # JetBrains
 .idea
+
+# misc stuff
+testing
