@@ -1,11 +1,12 @@
 package gameboy
 
-func (gb *Gameboy) execNextInstr() int {
+import "fmt"
 
-	/* the opcodes are sorted in pairs of four, the pattern is clear once you look at the opcode table */
+func (gb *Gameboy) execNextInstr() int {
 
 	opcode := gb.getImmediate() //fetch opcode
 
+	/* the opcodes are sorted in pairs of four, the pattern is clear once you look at the opcode table */
 	switch opcode {
 	case 0x00:
 		return nop()
@@ -490,8 +491,7 @@ func (gb *Gameboy) execNextInstr() int {
 	case 0xFF:
 		return gb.rst(0x38)
 	}
-	// TODO throw exception
-	return -1
+	panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
 }
 
 func (gb *Gameboy) getImmediate() uint8 {
@@ -502,8 +502,6 @@ func (gb *Gameboy) clockCycle(mCycles int) {
 }
 
 func nop() int {
-	// TODO
-
 	return 1
 }
 

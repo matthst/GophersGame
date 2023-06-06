@@ -9,7 +9,8 @@ type Gameboy struct {
 	IME    bool
 	IE, IF uint8
 
-	Regs *registers
+	DICounter, EICounter int
+	Regs                 *registers
 
 	video     components.Video
 	audio     components.Audio
@@ -38,6 +39,13 @@ func bootstrap(file []uint8) Gameboy {
 	}
 
 	return gb
+}
+
+func (gb *Gameboy) runInstructionCycle() {
+
+	mCycles := gb.execNextInstr()
+	gb.clockCycle(mCycles)
+
 }
 
 // write to the memory bank

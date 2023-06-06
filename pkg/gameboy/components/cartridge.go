@@ -12,7 +12,10 @@ type RomOnly struct {
 func (r RomOnly) Write(val uint8, adr uint16) {}
 
 func (r RomOnly) Load(adr uint16) uint8 {
-	return r.Rom[adr]
+	if adr < 0x8000 {
+		return r.Rom[adr]
+	}
+	return 0x00
 }
 
 // getROMSize returns the number of ROM banks based on the header byte 0x0148
