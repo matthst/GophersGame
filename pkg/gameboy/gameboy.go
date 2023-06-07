@@ -40,6 +40,9 @@ func bootstrap(file []uint8) Gameboy {
 	return gb
 }
 
+func (gb *Gameboy) clockCycle(mCycles int) {
+}
+
 func (gb *Gameboy) runInstructionCycle() {
 
 	gb.interruptServiceRoutine()
@@ -84,11 +87,15 @@ func (gb *Gameboy) interruptServiceRoutine() {
 			return
 		}
 		gb.IME = false
+		if gb.haltMode {
+			gb.haltMode = false
+			gb.clockCycle(4)
+		}
 		gb.rst(interruptAddress)
 		gb.clockCycle(5)
 	} else if gb.haltMode && gb.IE&gb.IF&0x1F != 0 {
 		gb.haltMode = false
-		// TODO check how many clock cycles this is supposed to take
+		gb.clockCycle(4)
 	}
 }
 
@@ -100,7 +107,7 @@ func (gb *Gameboy) getImmediate() uint8 {
 	return val
 }
 
-// write to the memory bank
+// write to the memory controller
 func (gb *Gameboy) write(val uint8, adr uint16) {
 	switch {
 	case adr < 0x8000: // cartridge ROM
@@ -144,7 +151,7 @@ func (gb *Gameboy) write(val uint8, adr uint16) {
 	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
 }
 
-// load from the memory bank
+// load from the memory controller
 func (gb *Gameboy) load(adr uint16) uint8 {
 	switch {
 	case adr < 0x8000: // cartridge ROM

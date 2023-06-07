@@ -494,16 +494,13 @@ func (gb *Gameboy) execNextInstr() int {
 	panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
 }
 
-func (gb *Gameboy) clockCycle(mCycles int) {
-}
-
 func nop() int {
 	return 1
 }
 
 func stop() int {
-	// TODO
-
+	// TODO implement the stop instruction
+	panic("Stop instruction (0x10) not implemented")
 	return 1
 }
 
