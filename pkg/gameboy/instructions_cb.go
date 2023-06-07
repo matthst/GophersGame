@@ -9,21 +9,21 @@ func (gb *Gameboy) execCBInstr() int {
 
 	switch opcode & 0xF {
 	case 0x0, 0x8:
-		reg = &gb.BC[1]
+		reg = &gb.B
 	case 0x1, 0x9:
-		reg = &gb.BC[0]
+		reg = &gb.C
 	case 0x2, 0xA:
-		reg = &gb.DE[1]
+		reg = &gb.D
 	case 0x3, 0xB:
-		reg = &gb.DE[0]
+		reg = &gb.E
 	case 0x4, 0xC:
-		reg = &gb.HL[1]
+		reg = &gb.H
 	case 0x5, 0xD:
-		reg = &gb.HL[0]
+		reg = &gb.L
 	case 0x6, 0xE:
 		*reg = gb.load(gb.getHL())
 	case 0x7, 0xF:
-		reg = &gb.AF[1]
+		reg = &gb.A
 	}
 
 	switch i := opcode / 8; {

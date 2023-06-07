@@ -14,19 +14,14 @@ type Gameboy struct {
 	timer     components.Timer
 
 	PC, SP                           uint16
-	AF, BC, DE, HL                   [2]uint8
+	A, F, B, C, D, E, H, L           uint8
 	EICounter, IE, IF                uint8
 	IME, haltMode, haltBug, stopMode bool
 }
 
 func bootstrap(file []uint8) Gameboy {
 
-	gb := Gameboy{
-		PC: 0x0100, SP: 0xFFFE,
-		AF: [2]uint8{0x00, 0x01},
-		BC: [2]uint8{0x13, 0x00},
-		DE: [2]uint8{0xD8, 0x00},
-		HL: [2]uint8{0x4D, 0x01}}
+	gb := Gameboy{PC: 0x0100, SP: 0xFFFE, A: 0x01, F: 0x00, B: 0x00, C: 0x13, D: 0x00, E: 0xD8, H: 0x01, L: 0x4D}
 
 	switch file[0x0147] {
 	case 0x00:
