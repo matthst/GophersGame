@@ -6,18 +6,17 @@ import (
 )
 
 type Gameboy struct {
-	IME    bool
-	IE, IF uint8
+	Regs  *registers
+	video components.Video
 
-	DICounter, EICounter int
-	Regs                 *registers
-
-	video     components.Video
 	audio     components.Audio
 	cartridge components.Cartridge
 	wram      components.WRAM
 	input     components.Input
 	timer     components.Timer
+
+	EICounter, IE, IF                uint8
+	IME, haltMode, haltBug, stopMode bool
 }
 
 func bootstrap(file []uint8) Gameboy {
@@ -43,9 +42,62 @@ func bootstrap(file []uint8) Gameboy {
 
 func (gb *Gameboy) runInstructionCycle() {
 
-	mCycles := gb.execNextInstr()
+	gb.interruptServiceRoutine()
+	mCycles := 1
+
+	if !gb.haltMode {
+		mCycles = gb.execNextInstr()
+	}
 	gb.clockCycle(mCycles)
 
+	if gb.EICounter > 0 {
+		if gb.EICounter == 1 {
+			gb.IME = true
+		}
+		gb.EICounter--
+	}
+}
+
+func (gb *Gameboy) interruptServiceRoutine() {
+	if gb.IME {
+		availableInterrupts := gb.IE & gb.IF & 0x1F
+		var interruptAddress uint16
+		switch availableInterrupts {
+		case 0b0000_0000:
+			return
+		case 0b0000_0001:
+			interruptAddress = 0x40
+			gb.IF &= 0b000_0001
+		case 0b0000_0010:
+			interruptAddress = 0x48
+			gb.IF &= 0b000_0010
+		case 0b0000_0100:
+			interruptAddress = 0x50
+			gb.IF &= 0b000_0100
+		case 0b0000_1000:
+			interruptAddress = 0x58
+			gb.IF &= 0b000_1000
+		case 0b0001_0000:
+			interruptAddress = 0x60
+			gb.IF &= 0b001_0000
+		default:
+			return
+		}
+		gb.IME = false
+		gb.rst(interruptAddress)
+		gb.clockCycle(5)
+	} else if gb.haltMode && gb.IE&gb.IF&0x1F != 0 {
+		gb.haltMode = false
+		// TODO check how many clock cycles this is supposed to take
+	}
+}
+
+func (gb *Gameboy) getImmediate() uint8 {
+	val := gb.load(gb.Regs.PC)
+	if !gb.haltBug {
+		gb.Regs.PC++
+	}
+	return val
 }
 
 // write to the memory bank
@@ -74,7 +126,7 @@ func (gb *Gameboy) write(val uint8, adr uint16) {
 	case adr < 0xFF0F: // timer control
 		gb.timer.Write(val, adr)
 	case adr == 0xFF0F: // IF flag
-		return // TODO Write to IF interrupt flag
+		gb.IF = val
 	case adr < 0xFF40: // audio + wave RAM
 		gb.audio.Write(val, adr)
 	case adr == 0xFF4D: //CG
@@ -86,7 +138,7 @@ func (gb *Gameboy) write(val uint8, adr uint16) {
 	case adr >= 0xFF80:
 		gb.wram.Write(val, adr)
 	case adr == 0xFFFF:
-		// TODO find out what to do here
+		gb.IE = val
 	}
 
 	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
@@ -118,7 +170,7 @@ func (gb *Gameboy) load(adr uint16) uint8 {
 	case adr < 0xFF0F: // timer control
 		return gb.timer.Load(adr)
 	case adr == 0xFF0F: // IF flag
-		return 1 // TODO Write to IF interrupt flag
+		return gb.IF
 	case adr < 0xFF40: // audio + wave RAM
 		return gb.audio.Load(adr)
 	case adr == 0xFF4D: //CG
@@ -130,7 +182,7 @@ func (gb *Gameboy) load(adr uint16) uint8 {
 	case adr >= 0xFF80:
 		gb.wram.Load(adr)
 	case adr == 0xFFFF:
-		return 1 // TODO find out what to do here
+		return gb.IE
 	}
 
 	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))

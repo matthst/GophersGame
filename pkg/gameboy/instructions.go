@@ -191,7 +191,7 @@ func (gb *Gameboy) execNextInstr() int {
 	case 0x66:
 		return gb.loadR8(&gb.Regs.HL[1], getWord(&gb.Regs.HL))
 	case 0x76:
-		return halt()
+		return gb.halt()
 	case 0x47:
 		return loadR8R8(&gb.Regs.BC[1], &gb.Regs.AF[1])
 	case 0x57:
@@ -419,7 +419,7 @@ func (gb *Gameboy) execNextInstr() int {
 	case 0xC3:
 		return gb.JumpI16(true)
 	case 0xF3:
-		return disableInterrupts()
+		return gb.disableInterrupts()
 	case 0xC4:
 		return gb.call(!gb.Regs.getZ())
 	case 0xD4:
@@ -467,7 +467,7 @@ func (gb *Gameboy) execNextInstr() int {
 	case 0xCB:
 		return gb.execCBInstr()
 	case 0xFB:
-		return enableInterrupts()
+		return gb.enableInterrupts()
 	case 0xCC:
 		return gb.call(gb.Regs.getZ())
 	case 0xDC:
@@ -494,10 +494,6 @@ func (gb *Gameboy) execNextInstr() int {
 	panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
 }
 
-func (gb *Gameboy) getImmediate() uint8 {
-	return 0
-}
-
 func (gb *Gameboy) clockCycle(mCycles int) {
 }
 
@@ -511,21 +507,25 @@ func stop() int {
 	return 1
 }
 
-func halt() int {
-	// TODO
+func (gb *Gameboy) halt() int {
+	if gb.IE&gb.IF&0x1F != 0 {
+		gb.haltBug = true
+	} else {
+		gb.haltMode = true
+	}
 
 	return 1
 }
 
-func disableInterrupts() int {
-	// TODO
-
+func (gb *Gameboy) disableInterrupts() int {
+	gb.IME = false
 	return 1
 }
 
-func enableInterrupts() int {
-	// TODO
-
+func (gb *Gameboy) enableInterrupts() int {
+	if gb.EICounter == 0 {
+		gb.EICounter = 2
+	}
 	return 1
 }
 
@@ -577,20 +577,15 @@ func (gb *Gameboy) ret() int {
 }
 
 func (gb *Gameboy) retInterrupt() int {
-	// TODO
-	return 4
+	gb.IME = true
+	return gb.ret()
 }
 
 func (gb *Gameboy) call(cond bool) int {
 	lo := gb.getImmediate()
 	hi := gb.getImmediate()
 	if cond {
-		p, c := getBytesFromWord(gb.Regs.PC)
-		gb.write(p, gb.Regs.SP)
-		gb.Regs.SP--
-		gb.write(c, gb.Regs.SP)
-		gb.Regs.SP--
-		gb.Regs.PC = getWordFromBytes(hi, lo)
+		gb.rst(getWordFromBytes(hi, lo))
 		return 6
 	}
 	return 3
