@@ -6,24 +6,22 @@ import (
 )
 
 type Gameboy struct {
-	Regs  *registers
-	video components.Video
-
+	video     components.Video
 	audio     components.Audio
 	cartridge components.Cartridge
 	wram      components.WRAM
 	input     components.Input
 	timer     components.Timer
 
+	PC, SP                           uint16
+	AF, BC, DE, HL                   [2]uint8
 	EICounter, IE, IF                uint8
 	IME, haltMode, haltBug, stopMode bool
 }
 
 func bootstrap(file []uint8) Gameboy {
 
-	gb := Gameboy{}
-
-	gb.Regs = &registers{
+	gb := Gameboy{
 		PC: 0x0100, SP: 0xFFFE,
 		AF: [2]uint8{0x00, 0x01},
 		BC: [2]uint8{0x13, 0x00},
@@ -100,9 +98,9 @@ func (gb *Gameboy) interruptServiceRoutine() {
 }
 
 func (gb *Gameboy) getImmediate() uint8 {
-	val := gb.load(gb.Regs.PC)
+	val := gb.load(gb.PC)
 	if !gb.haltBug {
-		gb.Regs.PC++
+		gb.PC++
 	}
 	return val
 }
