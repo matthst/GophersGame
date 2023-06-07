@@ -81,13 +81,13 @@ func (gb *Gameboy) execNextInstr() int {
 	case 0x38:
 		return gb.JumpRelativeI8(gb.getCFlag())
 	case 0x09:
-		return gb.addR16R16(&gb.HL, getWord(&gb.BC))
+		return gb.addR16R16(getWord(&gb.BC))
 	case 0x19:
-		return gb.addR16R16(&gb.HL, getWord(&gb.DE))
+		return gb.addR16R16(getWord(&gb.DE))
 	case 0x29:
-		return gb.addR16R16(&gb.HL, getWord(&gb.HL))
+		return gb.addR16R16(getWord(&gb.HL))
 	case 0x39:
-		return gb.addR16R16(&gb.HL, gb.SP)
+		return gb.addR16R16(gb.SP)
 	case 0x0A:
 		return gb.loadR8(&gb.AF[1], getWord(&gb.BC))
 	case 0x1A:
@@ -432,6 +432,14 @@ func (gb *Gameboy) execNextInstr() int {
 		return gb.aluI8(gb.andR8)
 	case 0xF6:
 		return gb.aluI8(gb.orR8)
+	case 0xC5:
+		return gb.push(&gb.BC)
+	case 0xD5:
+		return gb.push(&gb.DE)
+	case 0xE5:
+		return gb.push(&gb.HL)
+	case 0xF5:
+		return gb.push(&gb.AF)
 	case 0xC7:
 		return gb.rst(0x00)
 	case 0xD7:
@@ -510,7 +518,6 @@ func (gb *Gameboy) halt() int {
 	} else {
 		gb.haltMode = true
 	}
-
 	return 1
 }
 
@@ -783,14 +790,13 @@ func (gb *Gameboy) decM8(adr uint16) int {
 	return 3
 }
 
-// addR16R16 add the contents of one 16-bit register pair to another
-func (gb *Gameboy) addR16R16(reg *[2]uint8, val uint16) int {
-	a := getWord(reg)
-
-	gb.setHFlag(halfCarryAddCheck16Bit(a, val))
-	gb.setCFlag(a+val < a)
+// addR16R16 add the contents of one 16-bit register pair to the register HL
+func (gb *Gameboy) addR16R16(val uint16) int {
+	HL := getWord(&gb.HL)
+	gb.setHFlag(halfCarryAddCheck16Bit(HL, val))
+	gb.setCFlag(HL+val < HL)
 	gb.setNFlag(false)
-	setWord(reg, a+val)
+	setWord(&gb.HL, HL+val)
 	return 2
 }
 
