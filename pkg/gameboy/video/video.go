@@ -1,6 +1,15 @@
-package components
+package video
+
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+)
 
 type Video struct {
+
+	// data section
+
+	// render section
+	tileImages [384]ebiten.Image
 }
 
 func (v *Video) Load(adr uint16) uint8 {

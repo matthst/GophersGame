@@ -3,6 +3,7 @@ package components
 type Cartridge interface {
 	Write(val uint8, adr uint16)
 	Load(adr uint16) uint8
+	GetCartridgeType() string
 }
 
 type RomOnly struct {
@@ -16,6 +17,10 @@ func (r RomOnly) Load(adr uint16) uint8 {
 		return r.Rom[adr]
 	}
 	return 0x00
+}
+
+func (r RomOnly) GetCartridgeType() string {
+	return "No MBC"
 }
 
 // getROMSize returns the number of ROM banks based on the header byte 0x0148

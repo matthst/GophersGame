@@ -1,6 +1,6 @@
 package gameboy
 
-func (gb *Gameboy) execCBInstr() int {
+func (gb *Gameboy) execCBInstr() {
 
 	opcode := gb.getImmediate() //fetch opcode
 
@@ -51,14 +51,9 @@ func (gb *Gameboy) execCBInstr() int {
 		*reg = unsetBitCB(*reg, i-24)
 	}
 
-	if i := opcode & 0xF; i == 0x6 || i == 0xE {
+	if i := opcode & 0xF; !(opcode < 0x40 || opcode > 0x7F) && i == 0x6 || i == 0xE {
 		gb.write(*reg, gb.getHL())
-		if opcode >= 0x40 && opcode < 0x7F {
-			return 3
-		}
-		return 4
 	}
-	return 2
 }
 
 func (gb *Gameboy) shiftCB(reg *uint8, funcDef shiftInternalFuncDef) {

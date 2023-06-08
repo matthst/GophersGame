@@ -3,10 +3,11 @@ package gameboy
 import (
 	"fmt"
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
+	"github.com/matthst/gophersgame/pkg/gameboy/video"
 )
 
 type Gameboy struct {
-	video     components.Video
+	video     video.Video
 	audio     components.Audio
 	cartridge components.Cartridge
 	wram      components.WRAM
@@ -33,18 +34,17 @@ func bootstrap(file []uint8) Gameboy {
 	return gb
 }
 
-func (gb *Gameboy) clockCycle(mCycles int) {
+func (gb *Gameboy) tick() {
+
 }
 
 func (gb *Gameboy) runInstructionCycle() {
 
 	gb.interruptServiceRoutine()
-	mCycles := 1
 
 	if !gb.haltMode {
-		mCycles = gb.execNextInstr()
+		gb.execNextInstr()
 	}
-	gb.clockCycle(mCycles)
 
 	if gb.EICounter > 0 {
 		if gb.EICounter == 1 {
@@ -82,13 +82,19 @@ func (gb *Gameboy) interruptServiceRoutine() {
 		gb.IME = false
 		if gb.haltMode {
 			gb.haltMode = false
-			gb.clockCycle(4)
+			gb.tick()
+			gb.tick()
+			gb.tick()
+			gb.tick()
 		}
+		gb.tick()
 		gb.rst(interruptAddress)
-		gb.clockCycle(5)
 	} else if gb.haltMode && gb.IE&gb.IF&0x1F != 0 {
 		gb.haltMode = false
-		gb.clockCycle(4)
+		gb.tick()
+		gb.tick()
+		gb.tick()
+		gb.tick()
 	}
 }
 
@@ -97,6 +103,7 @@ func (gb *Gameboy) getImmediate() uint8 {
 	if !gb.haltBug {
 		gb.PC++
 	}
+	gb.tick()
 	return val
 }
 
@@ -139,13 +146,17 @@ func (gb *Gameboy) write(val uint8, adr uint16) {
 		gb.wram.Write(val, adr)
 	case adr == 0xFFFF:
 		gb.IE = val
+	default:
+		panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
 	}
 
-	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
+	gb.tick()
 }
 
 // load from the memory controller
 func (gb *Gameboy) load(adr uint16) uint8 {
+	defer gb.tick()
+
 	switch {
 	case adr < 0x8000: // cartridge ROM
 		return gb.cartridge.Load(adr)

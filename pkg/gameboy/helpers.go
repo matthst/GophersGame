@@ -113,6 +113,17 @@ func (gb *Gameboy) getHL() uint16 {
 	return getWord(gb.H, gb.L)
 }
 
+func (gb *Gameboy) getAndIncSP() uint16 {
+	val := gb.SP
+	gb.SP++
+	return val
+}
+func (gb *Gameboy) getAndDecSP() uint16 {
+	val := gb.SP
+	gb.SP--
+	return val
+}
+
 func (gb *Gameboy) setFlags(Z, N, H, C bool) {
 	gb.setZFlag(Z)
 	gb.setNFlag(N)
