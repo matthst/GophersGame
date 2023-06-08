@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-const RENDER_SCALE = 1
-const VIEWPORT_WIDTH = 160
-const VIEWPORT_HEIGHT = 144
+const RenderScale = 1
+const ViewportWidth = 160
+const ViewportHeight = 144
 
 type Game struct {
 	renderOutput *ebiten.Image
@@ -22,13 +22,13 @@ type Game struct {
 func (g *Game) Update() error {
 	var myColor color.Color
 	if g.Lightswitch {
-		myColor = color.White
+		myColor = color.Gray{150}
 	} else {
-		myColor = color.Black
+		myColor = color.Gray{160}
 	}
 	start := time.Now()
-	for x := 0; x < VIEWPORT_HEIGHT; x++ {
-		for y := 0; y < VIEWPORT_WIDTH; y++ {
+	for x := 0; x < ViewportHeight; x++ {
+		for y := 0; y < ViewportWidth; y++ {
 			g.renderOutput.Set(x, y, myColor)
 		}
 	}
@@ -55,10 +55,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
-	renderOutputImage := ebiten.NewImage(VIEWPORT_WIDTH, VIEWPORT_HEIGHT)
+	renderOutputImage := ebiten.NewImage(ViewportWidth, ViewportHeight)
 
 	myOp := &ebiten.DrawImageOptions{}
-	myOp.GeoM.Scale(RENDER_SCALE, RENDER_SCALE)
+	myOp.GeoM.Scale(RenderScale, RenderScale)
 	myOp.GeoM.Translate(64, 64)
 	myOp.Filter = ebiten.FilterNearest
 
