@@ -2,862 +2,860 @@ package gameboy
 
 import "fmt"
 
-func (gb *Gameboy) execNextInstr() {
+func execNextInstr() {
 
-	opcode := gb.getImmediate() //fetch opcode
+	opcode := getImmediate() //fetch opcode
 
 	/* the opcodes are sorted in pairs of four, the pattern is clear once you look at the opcode table */
 	switch opcode {
 	case 0x00:
-		gb.nop()
+		nop()
 	case 0x10:
-		gb.stop()
+		stop()
 	case 0x20:
-		gb.JumpRelativeI8(!gb.getZFlag())
+		JumpRelativeI8(!getZFlag())
 	case 0x30:
-		gb.JumpRelativeI8(!gb.getNFlag())
+		JumpRelativeI8(!getNFlag())
 	case 0x01:
-		gb.loadI16(&gb.B, &gb.C)
+		loadI16(&bReg, &cReg)
 	case 0x11:
-		gb.loadI16(&gb.D, &gb.E)
+		loadI16(&dReg, &eReg)
 	case 0x21:
-		gb.loadI16(&gb.H, &gb.L)
+		loadI16(&hReg, &lReg)
 	case 0x31:
-		gb.loadI16SP()
+		loadI16SP()
 	case 0x02:
-		gb.storeR8(gb.A, gb.getBC())
+		storeR8(aReg, getWord(bReg, cReg))
 	case 0x12:
-		gb.storeR8(gb.A, gb.getDE())
+		storeR8(aReg, getWord(dReg, eReg))
 	case 0x22:
-		gb.storeR8(gb.A, getWordInc(&gb.H, &gb.L))
+		storeR8(aReg, getWordInc(&hReg, &lReg))
 	case 0x32:
-		gb.storeR8(gb.A, getWordDec(&gb.H, &gb.L))
+		storeR8(aReg, getWordDec(&hReg, &lReg))
 	case 0x03:
-		gb.incR16(&gb.B, &gb.C)
+		incR16(&bReg, &cReg)
 	case 0x13:
-		gb.incR16(&gb.D, &gb.E)
+		incR16(&dReg, &eReg)
 	case 0x23:
-		gb.incR16(&gb.H, &gb.L)
+		incR16(&hReg, &lReg)
 	case 0x33:
-		gb.incSP()
+		incSP()
 	case 0x04:
-		gb.incR8(&gb.B)
+		incR8(&bReg)
 	case 0x14:
-		gb.incR8(&gb.D)
+		incR8(&dReg)
 	case 0x24:
-		gb.incR8(&gb.H)
+		incR8(&hReg)
 	case 0x34:
-		gb.incM8(gb.getHL())
+		incM8(getHL())
 	case 0x05:
-		gb.decR8(&gb.B)
+		decR8(&bReg)
 	case 0x15:
-		gb.decR8(&gb.D)
+		decR8(&dReg)
 	case 0x25:
-		gb.decR8(&gb.H)
+		decR8(&hReg)
 	case 0x35:
-		gb.decM8(gb.getHL())
+		decM8(getHL())
 	case 0x06:
-		gb.loadI8(&gb.B)
+		loadI8(&bReg)
 	case 0x16:
-		gb.loadI8(&gb.D)
+		loadI8(&dReg)
 	case 0x26:
-		gb.loadI8(&gb.H)
+		loadI8(&hReg)
 	case 0x36:
-		gb.storeI8()
+		storeI8()
 	case 0x07:
-		gb.rotateLeftCircularA()
+		rotateLeftCircularA()
 	case 0x17:
-		gb.rotateLeftA()
+		rotateLeftA()
 	case 0x27:
-		gb.decimalAdjustA()
+		decimalAdjustA()
 	case 0x37:
-		gb.setCarryFlag(true)
+		setCarryFlag(true)
 	case 0x08:
-		gb.storeSPI16()
+		storeSPI16()
 	case 0x18:
-		gb.JumpRelativeI8(true)
+		JumpRelativeI8(true)
 	case 0x28:
-		gb.JumpRelativeI8(gb.getZFlag())
+		JumpRelativeI8(getZFlag())
 	case 0x38:
-		gb.JumpRelativeI8(gb.getCFlag())
+		JumpRelativeI8(getCFlag())
 	case 0x09:
-		gb.addR16R16(gb.getBC())
+		addR16R16(getWord(bReg, cReg))
 	case 0x19:
-		gb.addR16R16(gb.getDE())
+		addR16R16(getWord(dReg, eReg))
 	case 0x29:
-		gb.addR16R16(gb.getHL())
+		addR16R16(getHL())
 	case 0x39:
-		gb.addR16R16(gb.SP)
+		addR16R16(SP)
 	case 0x0A:
-		gb.loadR8(&gb.A, gb.getBC())
+		loadR8(&aReg, getWord(bReg, cReg))
 	case 0x1A:
-		gb.loadR8(&gb.A, gb.getDE())
+		loadR8(&aReg, getWord(dReg, eReg))
 	case 0x2A:
-		gb.loadR8(&gb.A, getWordInc(&gb.H, &gb.L))
+		loadR8(&aReg, getWordInc(&hReg, &lReg))
 	case 0x3A:
-		gb.loadR8(&gb.A, getWordDec(&gb.H, &gb.L))
+		loadR8(&aReg, getWordDec(&hReg, &lReg))
 	case 0x0B:
-		gb.decR16(&gb.B, &gb.C)
+		decR16(&bReg, &cReg)
 	case 0x1B:
-		gb.decR16(&gb.D, &gb.E)
+		decR16(&dReg, &eReg)
 	case 0x2B:
-		gb.decR16(&gb.H, &gb.L)
+		decR16(&hReg, &lReg)
 	case 0x3B:
-		gb.decSP()
+		decSP()
 	case 0x0C:
-		gb.incR8(&gb.C)
+		incR8(&cReg)
 	case 0x1C:
-		gb.incR8(&gb.E)
+		incR8(&eReg)
 	case 0x2C:
-		gb.incR8(&gb.L)
+		incR8(&lReg)
 	case 0x3C:
-		gb.incR8(&gb.A)
+		incR8(&aReg)
 	case 0x0D:
-		gb.decR8(&gb.C)
+		decR8(&cReg)
 	case 0x1D:
-		gb.decR8(&gb.E)
+		decR8(&eReg)
 	case 0x2D:
-		gb.decR8(&gb.L)
+		decR8(&lReg)
 	case 0x3D:
-		gb.decR8(&gb.A)
+		decR8(&aReg)
 	case 0x0E:
-		gb.loadI8(&gb.C)
+		loadI8(&cReg)
 	case 0x1E:
-		gb.loadI8(&gb.E)
+		loadI8(&eReg)
 	case 0x2E:
-		gb.loadI8(&gb.L)
+		loadI8(&lReg)
 	case 0x3E:
-		gb.loadI8(&gb.A)
+		loadI8(&aReg)
 	case 0x0F:
-		gb.rotateRightCircularA()
+		rotateRightCircularA()
 	case 0x1F:
-		gb.rotateRightA()
+		rotateRightA()
 	case 0x2F:
-		complementR8(&gb.A)
+		complementR8(&aReg)
 	case 0x3F:
-		gb.setCarryFlag(!gb.getCFlag())
+		setCarryFlag(!getCFlag())
 	case 0x40:
-		gb.loadR8R8(&gb.B, &gb.B)
+		loadR8R8(&bReg, &bReg)
 	case 0x50:
-		gb.loadR8R8(&gb.D, &gb.B)
+		loadR8R8(&dReg, &bReg)
 	case 0x60:
-		gb.loadR8R8(&gb.H, &gb.B)
+		loadR8R8(&hReg, &bReg)
 	case 0x70:
-		gb.storeR8(gb.B, gb.getHL())
+		storeR8(bReg, getHL())
 	case 0x41:
-		gb.loadR8R8(&gb.B, &gb.C)
+		loadR8R8(&bReg, &cReg)
 	case 0x51:
-		gb.loadR8R8(&gb.D, &gb.C)
+		loadR8R8(&dReg, &cReg)
 	case 0x61:
-		gb.loadR8R8(&gb.H, &gb.C)
+		loadR8R8(&hReg, &cReg)
 	case 0x71:
-		gb.storeR8(gb.C, gb.getHL())
+		storeR8(cReg, getHL())
 	case 0x42:
-		gb.loadR8R8(&gb.B, &gb.D)
+		loadR8R8(&bReg, &dReg)
 	case 0x52:
-		gb.loadR8R8(&gb.D, &gb.D)
+		loadR8R8(&dReg, &dReg)
 	case 0x62:
-		gb.loadR8R8(&gb.H, &gb.D)
+		loadR8R8(&hReg, &dReg)
 	case 0x72:
-		gb.storeR8(gb.D, gb.getHL())
+		storeR8(dReg, getHL())
 	case 0x43:
-		gb.loadR8R8(&gb.B, &gb.E)
+		loadR8R8(&bReg, &eReg)
 	case 0x53:
-		gb.loadR8R8(&gb.D, &gb.E)
+		loadR8R8(&dReg, &eReg)
 	case 0x63:
-		gb.loadR8R8(&gb.H, &gb.E)
+		loadR8R8(&hReg, &eReg)
 	case 0x73:
-		gb.storeR8(gb.E, gb.getHL())
+		storeR8(eReg, getHL())
 	case 0x44:
-		gb.loadR8R8(&gb.B, &gb.H)
+		loadR8R8(&bReg, &hReg)
 	case 0x54:
-		gb.loadR8R8(&gb.D, &gb.H)
+		loadR8R8(&dReg, &hReg)
 	case 0x64:
-		gb.loadR8R8(&gb.H, &gb.H)
+		loadR8R8(&hReg, &hReg)
 	case 0x74:
-		gb.storeR8(gb.H, gb.getHL())
+		storeR8(hReg, getHL())
 	case 0x45:
-		gb.loadR8R8(&gb.B, &gb.L)
+		loadR8R8(&bReg, &lReg)
 	case 0x55:
-		gb.loadR8R8(&gb.D, &gb.L)
+		loadR8R8(&dReg, &lReg)
 	case 0x65:
-		gb.loadR8R8(&gb.H, &gb.L)
+		loadR8R8(&hReg, &lReg)
 	case 0x75:
-		gb.storeR8(gb.L, gb.getHL())
+		storeR8(lReg, getHL())
 	case 0x46:
-		gb.loadR8(&gb.B, gb.getHL())
+		loadR8(&bReg, getHL())
 	case 0x56:
-		gb.loadR8(&gb.D, gb.getHL())
+		loadR8(&dReg, getHL())
 	case 0x66:
-		gb.loadR8(&gb.H, gb.getHL())
+		loadR8(&hReg, getHL())
 	case 0x76:
-		gb.halt()
+		halt()
 	case 0x47:
-		gb.loadR8R8(&gb.B, &gb.A)
+		loadR8R8(&bReg, &aReg)
 	case 0x57:
-		gb.loadR8R8(&gb.D, &gb.A)
+		loadR8R8(&dReg, &aReg)
 	case 0x67:
-		gb.loadR8R8(&gb.H, &gb.A)
+		loadR8R8(&hReg, &aReg)
 	case 0x77:
-		gb.storeR8(gb.A, gb.getHL())
+		storeR8(aReg, getHL())
 	case 0x48:
-		gb.loadR8R8(&gb.C, &gb.B)
+		loadR8R8(&cReg, &bReg)
 	case 0x58:
-		gb.loadR8R8(&gb.E, &gb.B)
+		loadR8R8(&eReg, &bReg)
 	case 0x68:
-		gb.loadR8R8(&gb.L, &gb.B)
+		loadR8R8(&lReg, &bReg)
 	case 0x78:
-		gb.loadR8R8(&gb.A, &gb.B)
+		loadR8R8(&aReg, &bReg)
 	case 0x49:
-		gb.loadR8R8(&gb.C, &gb.C)
+		loadR8R8(&cReg, &cReg)
 	case 0x59:
-		gb.loadR8R8(&gb.E, &gb.C)
+		loadR8R8(&eReg, &cReg)
 	case 0x69:
-		gb.loadR8R8(&gb.L, &gb.C)
+		loadR8R8(&lReg, &cReg)
 	case 0x79:
-		gb.loadR8R8(&gb.A, &gb.C)
+		loadR8R8(&aReg, &cReg)
 	case 0x4A:
-		gb.loadR8R8(&gb.C, &gb.D)
+		loadR8R8(&cReg, &dReg)
 	case 0x5A:
-		gb.loadR8R8(&gb.E, &gb.D)
+		loadR8R8(&eReg, &dReg)
 	case 0x6A:
-		gb.loadR8R8(&gb.L, &gb.D)
+		loadR8R8(&lReg, &dReg)
 	case 0x7A:
-		gb.loadR8R8(&gb.A, &gb.D)
+		loadR8R8(&aReg, &dReg)
 	case 0x4B:
-		gb.loadR8R8(&gb.C, &gb.E)
+		loadR8R8(&cReg, &eReg)
 	case 0x5B:
-		gb.loadR8R8(&gb.E, &gb.E)
+		loadR8R8(&eReg, &eReg)
 	case 0x6B:
-		gb.loadR8R8(&gb.L, &gb.E)
+		loadR8R8(&lReg, &eReg)
 	case 0x7B:
-		gb.loadR8R8(&gb.A, &gb.E)
+		loadR8R8(&aReg, &eReg)
 	case 0x4C:
-		gb.loadR8R8(&gb.C, &gb.H)
+		loadR8R8(&cReg, &hReg)
 	case 0x5C:
-		gb.loadR8R8(&gb.E, &gb.H)
+		loadR8R8(&eReg, &hReg)
 	case 0x6C:
-		gb.loadR8R8(&gb.L, &gb.H)
+		loadR8R8(&lReg, &hReg)
 	case 0x7C:
-		gb.loadR8R8(&gb.A, &gb.H)
+		loadR8R8(&aReg, &hReg)
 	case 0x4D:
-		gb.loadR8R8(&gb.C, &gb.L)
+		loadR8R8(&cReg, &lReg)
 	case 0x5D:
-		gb.loadR8R8(&gb.E, &gb.L)
+		loadR8R8(&eReg, &lReg)
 	case 0x6D:
-		gb.loadR8R8(&gb.L, &gb.L)
+		loadR8R8(&lReg, &lReg)
 	case 0x7D:
-		gb.loadR8R8(&gb.A, &gb.L)
+		loadR8R8(&aReg, &lReg)
 	case 0x4E:
-		gb.loadR8(&gb.C, gb.getHL())
+		loadR8(&cReg, getHL())
 	case 0x5E:
-		gb.loadR8(&gb.E, gb.getHL())
+		loadR8(&eReg, getHL())
 	case 0x6E:
-		gb.loadR8(&gb.L, gb.getHL())
+		loadR8(&lReg, getHL())
 	case 0x7E:
-		gb.loadR8(&gb.A, gb.getHL())
+		loadR8(&aReg, getHL())
 	case 0x4F:
-		gb.loadR8R8(&gb.C, &gb.A)
+		loadR8R8(&cReg, &aReg)
 	case 0x5F:
-		gb.loadR8R8(&gb.E, &gb.A)
+		loadR8R8(&eReg, &aReg)
 	case 0x6F:
-		gb.loadR8R8(&gb.L, &gb.A)
+		loadR8R8(&lReg, &aReg)
 	case 0x7F:
-		gb.loadR8R8(&gb.A, &gb.A)
+		loadR8R8(&aReg, &aReg)
 	case 0x80:
-		gb.addR8(gb.B)
+		addR8(bReg)
 	case 0x90:
-		gb.subR8(gb.B)
+		subR8(bReg)
 	case 0xA0:
-		gb.andR8(gb.B)
+		andR8(bReg)
 	case 0xB0:
-		gb.orR8(gb.B)
+		orR8(bReg)
 	case 0x81:
-		gb.addR8(gb.C)
+		addR8(cReg)
 	case 0x91:
-		gb.subR8(gb.C)
+		subR8(cReg)
 	case 0xA1:
-		gb.andR8(gb.C)
+		andR8(cReg)
 	case 0xB1:
-		gb.orR8(gb.C)
+		orR8(cReg)
 	case 0x82:
-		gb.addR8(gb.D)
+		addR8(dReg)
 	case 0x92:
-		gb.subR8(gb.D)
+		subR8(dReg)
 	case 0xA2:
-		gb.andR8(gb.D)
+		andR8(dReg)
 	case 0xB2:
-		gb.orR8(gb.D)
+		orR8(dReg)
 	case 0x83:
-		gb.addR8(gb.E)
+		addR8(eReg)
 	case 0x93:
-		gb.subR8(gb.E)
+		subR8(eReg)
 	case 0xA3:
-		gb.andR8(gb.E)
+		andR8(eReg)
 	case 0xB3:
-		gb.orR8(gb.E)
+		orR8(eReg)
 	case 0x84:
-		gb.addR8(gb.H)
+		addR8(hReg)
 	case 0x94:
-		gb.subR8(gb.H)
+		subR8(hReg)
 	case 0xA4:
-		gb.andR8(gb.H)
+		andR8(hReg)
 	case 0xB4:
-		gb.orR8(gb.H)
+		orR8(hReg)
 	case 0x85:
-		gb.addR8(gb.L)
+		addR8(lReg)
 	case 0x95:
-		gb.subR8(gb.L)
+		subR8(lReg)
 	case 0xA5:
-		gb.andR8(gb.L)
+		andR8(lReg)
 	case 0xB5:
-		gb.orR8(gb.L)
+		orR8(lReg)
 	case 0x86:
-		gb.aluM8(gb.addR8)
+		aluM8(addR8)
 	case 0x96:
-		gb.aluM8(gb.subR8)
+		aluM8(subR8)
 	case 0xA6:
-		gb.aluM8(gb.andR8)
+		aluM8(andR8)
 	case 0xB6:
-		gb.aluM8(gb.orR8)
+		aluM8(orR8)
 	case 0x87:
-		gb.addR8(gb.A)
+		addR8(aReg)
 	case 0x97:
-		gb.subR8(gb.A)
+		subR8(aReg)
 	case 0xA7:
-		gb.andR8(gb.A)
+		andR8(aReg)
 	case 0xB7:
-		gb.orR8(gb.A)
+		orR8(aReg)
 	case 0x88:
-		gb.adcR8(gb.B)
+		adcR8(bReg)
 	case 0x98:
-		gb.sbcR8(gb.B)
+		sbcR8(bReg)
 	case 0xA8:
-		gb.xorR8(gb.B)
+		xorR8(bReg)
 	case 0xB8:
-		gb.cpR8(gb.B)
+		cpR8(bReg)
 	case 0x89:
-		gb.adcR8(gb.C)
+		adcR8(cReg)
 	case 0x99:
-		gb.sbcR8(gb.C)
+		sbcR8(cReg)
 	case 0xA9:
-		gb.xorR8(gb.C)
+		xorR8(cReg)
 	case 0xB9:
-		gb.cpR8(gb.C)
+		cpR8(cReg)
 	case 0x8A:
-		gb.adcR8(gb.D)
+		adcR8(dReg)
 	case 0x9A:
-		gb.sbcR8(gb.D)
+		sbcR8(dReg)
 	case 0xAA:
-		gb.xorR8(gb.D)
+		xorR8(dReg)
 	case 0xBA:
-		gb.cpR8(gb.D)
+		cpR8(dReg)
 	case 0x8B:
-		gb.adcR8(gb.E)
+		adcR8(eReg)
 	case 0x9B:
-		gb.sbcR8(gb.E)
+		sbcR8(eReg)
 	case 0xAB:
-		gb.xorR8(gb.E)
+		xorR8(eReg)
 	case 0xBB:
-		gb.cpR8(gb.E)
+		cpR8(eReg)
 	case 0x8C:
-		gb.adcR8(gb.H)
+		adcR8(hReg)
 	case 0x9C:
-		gb.sbcR8(gb.H)
+		sbcR8(hReg)
 	case 0xAC:
-		gb.xorR8(gb.H)
+		xorR8(hReg)
 	case 0xBC:
-		gb.cpR8(gb.H)
+		cpR8(hReg)
 	case 0x8D:
-		gb.adcR8(gb.L)
+		adcR8(lReg)
 	case 0x9D:
-		gb.sbcR8(gb.L)
+		sbcR8(lReg)
 	case 0xAD:
-		gb.xorR8(gb.L)
+		xorR8(lReg)
 	case 0xBD:
-		gb.cpR8(gb.L)
+		cpR8(lReg)
 	case 0x8E:
-		gb.aluM8(gb.adcR8)
+		aluM8(adcR8)
 	case 0x9E:
-		gb.aluM8(gb.sbcR8)
+		aluM8(sbcR8)
 	case 0xAE:
-		gb.aluM8(gb.xorR8)
+		aluM8(xorR8)
 	case 0xBE:
-		gb.aluM8(gb.cpR8)
+		aluM8(cpR8)
 	case 0x8F:
-		gb.adcR8(gb.A)
+		adcR8(aReg)
 	case 0x9F:
-		gb.sbcR8(gb.A)
+		sbcR8(aReg)
 	case 0xAF:
-		gb.xorR8(gb.A)
+		xorR8(aReg)
 	case 0xBF:
-		gb.cpR8(gb.A)
+		cpR8(aReg)
 	case 0xC0:
-		gb.retCond(!gb.getZFlag())
+		retCond(!getZFlag())
 	case 0xD0:
-		gb.retCond(!gb.getCFlag())
+		retCond(!getCFlag())
 	case 0xE0:
-		gb.storeAI8()
+		storeAI8()
 	case 0xF0:
-		gb.loadAI8()
+		loadAI8()
 	case 0xC1:
-		gb.pop(&gb.B, &gb.C)
+		pop(&bReg, &cReg)
 	case 0xD1:
-		gb.pop(&gb.D, &gb.E)
+		pop(&dReg, &eReg)
 	case 0xE1:
-		gb.pop(&gb.H, &gb.L)
+		pop(&hReg, &lReg)
 	case 0xF1:
-		gb.pop(&gb.A, &gb.F)
+		pop(&aReg, &fReg)
 	case 0xC2:
-		gb.JumpI16(!gb.getZFlag())
+		JumpI16(!getZFlag())
 	case 0xD2:
-		gb.JumpI16(!gb.getCFlag())
+		JumpI16(!getCFlag())
 	case 0xE2:
-		gb.storeAC()
+		storeAC()
 	case 0xF2:
-		gb.loadAC()
+		loadAC()
 	case 0xC3:
-		gb.JumpI16(true)
+		JumpI16(true)
 	case 0xF3:
-		gb.disableInterrupts()
+		disableInterrupts()
 	case 0xC4:
-		gb.call(!gb.getZFlag())
+		call(!getZFlag())
 	case 0xD4:
-		gb.call(!gb.getCFlag())
+		call(!getCFlag())
 	case 0xC6:
-		gb.aluI8(gb.addR8)
+		aluI8(addR8)
 	case 0xD6:
-		gb.aluI8(gb.subR8)
+		aluI8(subR8)
 	case 0xE6:
-		gb.aluI8(gb.andR8)
+		aluI8(andR8)
 	case 0xF6:
-		gb.aluI8(gb.orR8)
+		aluI8(orR8)
 	case 0xC5:
-		gb.push(gb.B, gb.C)
+		push(bReg, cReg)
 	case 0xD5:
-		gb.push(gb.D, gb.E)
+		push(dReg, eReg)
 	case 0xE5:
-		gb.push(gb.H, gb.L)
+		push(hReg, lReg)
 	case 0xF5:
-		gb.push(gb.A, gb.F)
+		push(aReg, fReg)
 	case 0xC7:
-		gb.rst(0x00)
+		rst(0x00)
 	case 0xD7:
-		gb.rst(0x10)
+		rst(0x10)
 	case 0xE7:
-		gb.rst(0x20)
+		rst(0x20)
 	case 0xF7:
-		gb.rst(0x30)
+		rst(0x30)
 	case 0xC8:
-		gb.retCond(gb.getZFlag())
+		retCond(getZFlag())
 	case 0xD8:
-		gb.retCond(gb.getCFlag())
+		retCond(getCFlag())
 	case 0xE8:
-		gb.addSPS8SP()
+		addSPS8SP()
 	case 0xF8:
-		gb.addSPS8HL()
+		addSPS8HL()
 	case 0xC9:
-		gb.ret()
+		ret()
 	case 0xD9:
-		gb.retInterrupt()
+		retInterrupt()
 	case 0xE9:
-		gb.jumpHL()
+		jumpHL()
 	case 0xF9:
-		gb.loadHLSP()
+		loadHLSP()
 	case 0xCA:
-		gb.JumpI16(gb.getZFlag())
+		JumpI16(getZFlag())
 	case 0xDA:
-		gb.JumpI16(gb.getCFlag())
+		JumpI16(getCFlag())
 	case 0xEA:
-		gb.storeAMI16()
+		storeAMI16()
 	case 0xFA:
-		gb.loadAMI16()
+		loadAMI16()
 	case 0xCB:
-		gb.execCBInstr()
+		execCBInstr()
 	case 0xFB:
-		gb.enableInterrupts()
+		enableInterrupts()
 	case 0xCC:
-		gb.call(gb.getZFlag())
+		call(getZFlag())
 	case 0xDC:
-		gb.call(gb.getCFlag())
+		call(getCFlag())
 	case 0xCD:
-		gb.call(true)
+		call(true)
 	case 0xCE:
-		gb.aluM8(gb.adcR8)
+		aluM8(adcR8)
 	case 0xDE:
-		gb.aluM8(gb.sbcR8)
+		aluM8(sbcR8)
 	case 0xEE:
-		gb.aluM8(gb.xorR8)
+		aluM8(xorR8)
 	case 0xFE:
-		gb.aluM8(gb.cpR8)
+		aluM8(cpR8)
 	case 0xCF:
-		gb.rst(0x08)
+		rst(0x08)
 	case 0xDF:
-		gb.rst(0x18)
+		rst(0x18)
 	case 0xEF:
-		gb.rst(0x28)
+		rst(0x28)
 	case 0xFF:
-		gb.rst(0x38)
+		rst(0x38)
 	default:
 		panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
 	}
 }
 
-func (gb *Gameboy) nop() {
+func nop() {
 }
 
-func (gb *Gameboy) stop() int {
+func stop() int {
 	// TODO implement the stop instruction
 	panic("Stop instruction (0x10) not implemented")
 }
 
-func (gb *Gameboy) halt() {
-	if gb.IE&gb.IF&0x1F != 0 {
-		gb.haltBug = true
+func halt() {
+	if IE&IF&0x1F != 0 {
+		haltBug = true
 	} else {
-		gb.haltMode = true
+		haltMode = true
 	}
 }
 
-func (gb *Gameboy) disableInterrupts() {
-	gb.IME = false
+func disableInterrupts() {
+	IME = false
 }
 
-func (gb *Gameboy) enableInterrupts() {
-	if gb.EICounter == 0 {
-		gb.EICounter = 2
+func enableInterrupts() {
+	if EICounter == 0 {
+		EICounter = 2
 	}
 }
 
 // JumpI16 conditional jump
-func (gb *Gameboy) JumpI16(flag bool) {
-	lo := gb.getImmediate()
-	hi := gb.getImmediate()
+func JumpI16(flag bool) {
+	lo := getImmediate()
+	hi := getImmediate()
 	if flag {
-		gb.PC = getWord(hi, lo)
-		gb.tick()
+		PC = getWord(hi, lo)
+		tick()
 	}
 }
 
 // JumpRelativeI8 relative conditional jump
-func (gb *Gameboy) JumpRelativeI8(flag bool) {
-	im8 := gb.getImmediate()
+func JumpRelativeI8(flag bool) {
+	im8 := getImmediate()
 	if flag {
-		gb.PC += uint16(im8)
-		gb.tick()
+		PC += uint16(im8)
+		tick()
 	}
 }
 
-func (gb *Gameboy) jumpHL() {
-	gb.SP = gb.getHL()
+func jumpHL() {
+	SP = getHL()
 }
 
-func (gb *Gameboy) retCond(cond bool) {
-	gb.tick()
+func retCond(cond bool) {
+	tick()
 	if cond {
-		P := gb.load(gb.getAndIncSP())
-		S := gb.load(gb.getAndIncSP())
-		gb.PC = getWord(S, P)
-		gb.tick()
+		P := memConLoad(getAndIncSP())
+		S := memConLoad(getAndIncSP())
+		PC = getWord(S, P)
+		tick()
 	}
 }
 
-func (gb *Gameboy) ret() {
-	P := gb.load(gb.getAndIncSP())
-	S := gb.load(gb.getAndIncSP())
-	gb.PC = getWord(S, P)
-	gb.tick()
+func ret() {
+	P := memConLoad(getAndIncSP())
+	S := memConLoad(getAndIncSP())
+	PC = getWord(S, P)
+	tick()
 }
 
-func (gb *Gameboy) retInterrupt() {
-	gb.IME = true
-	gb.ret()
+func retInterrupt() {
+	IME = true
+	ret()
 }
 
-func (gb *Gameboy) call(cond bool) {
-	lo := gb.getImmediate()
-	hi := gb.getImmediate()
+func call(cond bool) {
+	lo := getImmediate()
+	hi := getImmediate()
 	if cond {
-		gb.tick()
-		gb.write(hi, gb.getAndDecSP())
-		gb.write(lo, gb.getAndDecSP())
+		tick()
+		memConWrite(hi, getAndDecSP())
+		memConWrite(lo, getAndDecSP())
 	}
 }
 
-func (gb *Gameboy) rst(adr uint16) {
-	P, C := getBytes(gb.PC)
-	gb.tick()
-	gb.write(P, gb.getAndDecSP())
-	gb.write(C, gb.getAndDecSP())
-	gb.PC = adr
+func rst(adr uint16) {
+	P, C := getBytes(PC)
+	tick()
+	memConWrite(P, getAndDecSP())
+	memConWrite(C, getAndDecSP())
+	PC = adr
 }
 
 // loadI8 load an 8-bit immediate into a register
-func (gb *Gameboy) loadI8(reg *uint8) {
-	*reg = gb.getImmediate()
+func loadI8(reg *uint8) {
+	*reg = getImmediate()
 }
 
 // loadR8R8 copy r2 into r1
-func (gb *Gameboy) loadR8R8(r1, r2 *uint8) {
+func loadR8R8(r1, r2 *uint8) {
 	*r1 = *r2
-	gb.tick()
+	tick()
 }
 
 // loadI16 load a 16-bit immediate into a register
-func (gb *Gameboy) loadI16(hi, lo *uint8) {
-	*lo = gb.getImmediate()
-	*hi = gb.getImmediate()
+func loadI16(hi, lo *uint8) {
+	*lo = getImmediate()
+	*hi = getImmediate()
 }
 
 // loadHLSP load the value of SP into HL
-func (gb *Gameboy) loadHLSP() {
-	setBytes(&gb.H, &gb.L, gb.SP)
-	gb.tick()
+func loadHLSP() {
+	setBytes(&hReg, &lReg, SP)
+	tick()
 }
 
-func (gb *Gameboy) loadI16SP() {
-	lo := gb.getImmediate()
-	hi := gb.getImmediate()
-	gb.SP = getWord(hi, lo)
+func loadI16SP() {
+	lo := getImmediate()
+	hi := getImmediate()
+	SP = getWord(hi, lo)
 }
 
 // loadR8 load an 8-bit val from memory into the given register
-func (gb *Gameboy) loadR8(reg *uint8, adr uint16) {
-	*reg = gb.load(adr)
+func loadR8(reg *uint8, adr uint16) {
+	*reg = memConLoad(adr)
 }
 
-// loadMAI16 load an 8-bit val into A from the memory address specified by the 16-bit immediate
-func (gb *Gameboy) loadAMI16() {
-	lo := gb.getImmediate()
-	hi := gb.getImmediate()
-	gb.A = gb.load(getWord(hi, lo))
+// loadMAI16 load an 8-bit val into aReg from the memory address specified by the 16-bit immediate
+func loadAMI16() {
+	lo := getImmediate()
+	hi := getImmediate()
+	aReg = memConLoad(getWord(hi, lo))
 }
 
 // loadAI8 load the content of an address in the block 0xFF00 - 0xFFFF given by an i8 into register A
-func (gb *Gameboy) loadAI8() {
-	adr := uint16(0xFF00) | uint16(gb.getImmediate())
-	gb.A = gb.load(adr)
+func loadAI8() {
+	adr := uint16(0xFF00) | uint16(getImmediate())
+	aReg = memConLoad(adr)
 }
 
 // loadAC load the content of an address in the block 0xFF00 - 0xFFFF given by register C into register A
-func (gb *Gameboy) loadAC() {
-	adr := uint16(0xFF00) | uint16(gb.C)
-	gb.A = gb.load(adr)
+func loadAC() {
+	adr := uint16(0xFF00) | uint16(cReg)
+	aReg = memConLoad(adr)
 }
 
 // storeR8 store the content of register at regVal in the address specified by RegAdr.
-func (gb *Gameboy) storeR8(val uint8, adr uint16) {
-	gb.write(val, adr)
+func storeR8(val uint8, adr uint16) {
+	memConWrite(val, adr)
 }
 
 // storeSPI16 store the stack pointer in the memory address provided by the 16-bit immediate
-func (gb *Gameboy) storeSPI16() {
-	adr := uint16(gb.getImmediate())
-	adr += uint16(gb.getImmediate()) << 8
-	S, P := getBytes(gb.SP)
-	gb.write(P, adr)
-	gb.write(S, adr+1)
+func storeSPI16() {
+	adr := uint16(getImmediate())
+	adr += uint16(getImmediate()) << 8
+	s, p := getBytes(SP)
+	memConWrite(p, adr)
+	memConWrite(s, adr+1)
 }
 
 // storeI8 store the immediate 8-bit value into the memory address specified by HL
-func (gb *Gameboy) storeI8() {
-	gb.write(gb.getImmediate(), gb.getHL())
+func storeI8() {
+	memConWrite(getImmediate(), getHL())
 }
 
 // storeAI8 store the content of register A in an address in the block 0xFF00 - 0xFFFF given by an i8
-func (gb *Gameboy) storeAI8() {
-	adr := uint16(0xFF00) | uint16(gb.getImmediate())
-	gb.write(gb.A, adr)
+func storeAI8() {
+	adr := uint16(0xFF00) | uint16(getImmediate())
+	memConWrite(aReg, adr)
 }
 
-// storeAMI16 store an 8-bit val from A into the memory address specified by the 16-bit immediate
-func (gb *Gameboy) storeAMI16() {
-	lo := gb.getImmediate()
-	hi := gb.getImmediate()
-	gb.write(gb.A, getWord(hi, lo))
+// storeAMI16 store an 8-bit val from aReg into the memory address specified by the 16-bit immediate
+func storeAMI16() {
+	lo := getImmediate()
+	hi := getImmediate()
+	memConWrite(aReg, getWord(hi, lo))
 }
 
-// storeAC store the content of register A in an address in the block 0xFF00 - 0xFFFF given by C
-func (gb *Gameboy) storeAC() {
-	gb.write(gb.A, uint16(0xFF00)|uint16(gb.C))
+// storeAC store the content of register A in an address in the block 0xFF00 - 0xFFFF given by A
+func storeAC() {
+	memConWrite(aReg, uint16(0xFF00)|uint16(cReg))
 }
 
-func (gb *Gameboy) push(hi, lo uint8) {
-	gb.tick()
-	gb.write(hi, gb.getAndDecSP())
-	gb.write(lo, gb.getAndDecSP())
+func push(hi, lo uint8) {
+	tick()
+	memConWrite(hi, getAndDecSP())
+	memConWrite(lo, getAndDecSP())
 }
 
 // pop load a 16bit value from memory and increment the stack pointer during the load (twice in total)
-func (gb *Gameboy) pop(hi, lo *uint8) {
-	*lo = gb.load(gb.getAndIncSP())
-	*hi = gb.load(gb.getAndIncSP())
+func pop(hi, lo *uint8) {
+	*lo = memConLoad(getAndIncSP())
+	*hi = memConLoad(getAndIncSP())
 }
 
 // incR16 increments a combine 16-bit register.
-func (gb *Gameboy) incR16(hi, lo *uint8) {
+func incR16(hi, lo *uint8) {
 	setBytes(hi, lo, getWord(*hi, *lo)+1)
-	gb.tick()
+	tick()
 }
 
 // incSP increments a combine 16-bit register.
-func (gb *Gameboy) incSP() {
-	gb.SP++
-	gb.tick()
+func incSP() {
+	SP++
+	tick()
 }
 
 // incR8 increment the given 8-bit register
-func (gb *Gameboy) incR8(reg *uint8) {
-	gb.setNFlag(false)
-	gb.setHFlag(halfCarryAddCheck8Bit(*reg, 1))
+func incR8(reg *uint8) {
+	setNFlag(false)
+	setHFlag(halfCarryAddCheck8Bit(*reg, 1))
 	*reg++
-	gb.setZFlag(*reg == 0)
+	setZFlag(*reg == 0)
 }
 
 // incM8 increment the 8 bit value at the specified memory address
-func (gb *Gameboy) incM8(adr uint16) {
-	val := gb.load(adr)
-	gb.setNFlag(false)
-	gb.setHFlag(halfCarryAddCheck8Bit(val, 1))
+func incM8(adr uint16) {
+	val := memConLoad(adr)
+	setNFlag(false)
+	setHFlag(halfCarryAddCheck8Bit(val, 1))
 	val++
-	gb.setZFlag(val == 0)
-	gb.write(val, adr)
+	setZFlag(val == 0)
+	memConWrite(val, adr)
 }
 
 // decR16 increments a combine 16-bit register.
-func (gb *Gameboy) decR16(hi, lo *uint8) {
+func decR16(hi, lo *uint8) {
 	setBytes(hi, lo, getWord(*hi, *lo)-1)
-	gb.tick()
+	tick()
 }
 
 // decSP increments a combine 16-bit register.
-func (gb *Gameboy) decSP() {
-	gb.SP--
-	gb.tick()
+func decSP() {
+	SP--
+	tick()
 }
 
 // decR8 decrement the given 8-bit register
-func (gb *Gameboy) decR8(reg *uint8) {
-	gb.setNFlag(true)
-	gb.setHFlag(halfCarrySubCheck8Bit(*reg, 1))
+func decR8(reg *uint8) {
+	setNFlag(true)
+	setHFlag(halfCarrySubCheck8Bit(*reg, 1))
 	*reg--
-	gb.setZFlag(*reg == 0)
+	setZFlag(*reg == 0)
 }
 
 // decM8 decrement the 8 bit value at the specified memory address
-func (gb *Gameboy) decM8(adr uint16) {
-	val := gb.load(adr)
-	gb.setNFlag(true)
-	gb.setHFlag(halfCarrySubCheck8Bit(val, 1))
+func decM8(adr uint16) {
+	val := memConLoad(adr)
+	setNFlag(true)
+	setHFlag(halfCarrySubCheck8Bit(val, 1))
 	val--
-	gb.setZFlag(val == 0)
-	gb.write(val, adr)
+	setZFlag(val == 0)
+	memConWrite(val, adr)
 }
 
 // addR16R16 add the contents of one 16-bit register pair to the register HL
-func (gb *Gameboy) addR16R16(val uint16) {
-	HL := gb.getHL()
-	gb.setHFlag(halfCarryAddCheck16Bit(HL, val))
-	gb.setCFlag(HL+val < HL)
-	gb.setNFlag(false)
-	setBytes(&gb.H, &gb.L, HL+val)
-	gb.tick()
+func addR16R16(val uint16) {
+	HL := getHL()
+	setHFlag(halfCarryAddCheck16Bit(HL, val))
+	setCFlag(HL+val < HL)
+	setNFlag(false)
+	setBytes(&hReg, &lReg, HL+val)
+	tick()
 }
 
 // addSPS8SP add the signed 2's complement immediate to the stack pointer and write it to HL
-func (gb *Gameboy) addSPS8SP() {
-	gb.SP = gb.addSPS8Internal()
-	gb.tick()
+func addSPS8SP() {
+	SP = addSPS8Internal()
+	tick()
 }
 
 // addSPS8HL add the signed 2's complement immediate to the stack pointer and write it to HL
-func (gb *Gameboy) addSPS8HL() {
-	setBytes(&gb.H, &gb.L, gb.addSPS8Internal())
+func addSPS8HL() {
+	setBytes(&hReg, &lReg, addSPS8Internal())
 }
 
 // addSPS8 add the signed 2's complement immediate to the stack pointer and return the value
-func (gb *Gameboy) addSPS8Internal() uint16 {
-	val := gb.getImmediate()
-	P := uint8(gb.SP)
-	gb.setZFlag(false)
-	gb.setNFlag(false)
+func addSPS8Internal() uint16 {
+	val := getImmediate()
+	P := uint8(SP)
+	setZFlag(false)
+	setNFlag(false)
 	if val < 128 { // positive 2's complement value :=
-		gb.setHFlag(halfCarryAddCheck8Bit(P, val))
-		gb.setCFlag(P+val < P)
-		return gb.SP + uint16(val)
+		setHFlag(halfCarryAddCheck8Bit(P, val))
+		setCFlag(P+val < P)
+		return SP + uint16(val)
 	}
 	// negative 2's complement value
 	val = ^val + 1 //get positive value from 2's complement signed number
-	gb.setHFlag(halfCarrySubCheck8Bit(P, val))
-	gb.setCFlag(P-val > P)
-	gb.tick()
-	return gb.SP - uint16(val)
+	setHFlag(halfCarrySubCheck8Bit(P, val))
+	setCFlag(P-val > P)
+	tick()
+	return SP - uint16(val)
 }
 
 // addR8 add the 8-bit value of a register to A
-func (gb *Gameboy) addR8(val uint8) {
-	a := gb.A
-	gb.setFlags(a+val == 0, false, halfCarryAddCheck8Bit(a, val), a+val < a)
-	gb.A += val
+func addR8(val uint8) {
+	setFlags(aReg+val == 0, false, halfCarryAddCheck8Bit(aReg, val), aReg+val < aReg)
+	aReg += val
 }
 
 // adcR8 add the 8-bit value of a register to A
-func (gb *Gameboy) adcR8(val uint8) {
-	if gb.getCFlag() {
-		gb.addR8(val + 1)
+func adcR8(val uint8) {
+	if getCFlag() {
+		addR8(val + 1)
 	}
-	gb.addR8(val)
+	addR8(val)
 }
 
 // subR8 subtract the 8-bit value of a register from A
-func (gb *Gameboy) subR8(val uint8) {
-	a := gb.A
-	gb.setFlags(a+val == 0, false, halfCarrySubCheck8Bit(a, val), a-val > a)
-	gb.A -= val
+func subR8(val uint8) {
+	setFlags(aReg+val == 0, false, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
+	aReg -= val
 }
 
 // sbcR8 subtract the 8-bit value of a register from A
-func (gb *Gameboy) sbcR8(val uint8) {
-	if gb.getCFlag() {
-		gb.subR8(val + 1)
+func sbcR8(val uint8) {
+	if getCFlag() {
+		subR8(val + 1)
 	}
-	gb.subR8(val)
+	subR8(val)
 }
 
 // andR8 logical AND the 8-bit value of a register with A
-func (gb *Gameboy) andR8(val uint8) {
-	gb.A &= val
-	gb.setFlags(gb.A == 0, false, true, false)
+func andR8(val uint8) {
+	aReg &= val
+	setFlags(aReg == 0, false, true, false)
 }
 
 // orR8 logical OR the 8-bit value of a register with A
-func (gb *Gameboy) orR8(val uint8) {
-	gb.A |= val
-	gb.setFlags(gb.A == 0, false, false, false)
+func orR8(val uint8) {
+	aReg |= val
+	setFlags(aReg == 0, false, false, false)
 }
 
 // xorR8 logical XOR the 8-bit value of a register with A
-func (gb *Gameboy) xorR8(val uint8) {
-	gb.A ^= val
-	gb.setFlags(gb.A == 0, false, false, false)
+func xorR8(val uint8) {
+	aReg ^= val
+	setFlags(aReg == 0, false, false, false)
 }
 
 // cpR8 compare the 8-bit value of a register with A
-func (gb *Gameboy) cpR8(val uint8) {
-	gb.setFlags(gb.A+val == 0, false, halfCarrySubCheck8Bit(gb.A, val), gb.A-val > gb.A)
+func cpR8(val uint8) {
+	setFlags(aReg+val == 0, false, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
 }
 
 // aluR8Def function definition of an 8-bit alu function
 type aluR8Def func(uint8)
 
 // aluI8 executes an 8-bit alu function with the given immediate
-func (gb *Gameboy) aluI8(aluFunc aluR8Def) {
-	aluFunc(gb.getImmediate())
+func aluI8(aluFunc aluR8Def) {
+	aluFunc(getImmediate())
 }
 
 // aluM8 executes an 8-bit alu function with the value from the given memory address
-func (gb *Gameboy) aluM8(aluFunc aluR8Def) {
-	val := gb.load(gb.getHL())
+func aluM8(aluFunc aluR8Def) {
+	val := memConLoad(getHL())
 	aluFunc(val)
 }
 
@@ -867,30 +865,30 @@ func complementR8(r *uint8) {
 }
 
 // rotateLeftCircularA circular rotate register A left
-func (gb *Gameboy) rotateLeftCircularA() {
-	gb.A = gb.rotateLeftCircularInternal(gb.A)
+func rotateLeftCircularA() {
+	aReg = rotateLeftCircularInternal(aReg)
 }
 
-// rotateLeftA rotate register A left
-func (gb *Gameboy) rotateLeftA() {
-	gb.A = gb.rotateLeftInternal(gb.A)
+// rotateLeftA rotate register aReg left
+func rotateLeftA() {
+	aReg = rotateLeftInternal(aReg)
 }
 
 // rotateRightCircularA circular rotate register A left
-func (gb *Gameboy) rotateRightCircularA() {
-	gb.A = gb.rotateRightCircularInternal(gb.A)
+func rotateRightCircularA() {
+	aReg = rotateRightCircularInternal(aReg)
 }
 
-// rotateRightA rotate register A left
-func (gb *Gameboy) rotateRightA() {
-	gb.A = gb.rotateRightInternal(gb.A)
+// rotateRightA rotate register aReg left
+func rotateRightA() {
+	aReg = rotateRightInternal(aReg)
 }
 
 // setCarryFlag sets the carry flag and unsets N and C
-func (gb *Gameboy) setCarryFlag(val bool) {
-	gb.setNFlag(false)
-	gb.setHFlag(false)
-	gb.setCFlag(val)
+func setCarryFlag(val bool) {
+	setNFlag(false)
+	setHFlag(false)
+	setCFlag(val)
 }
 
 /*
@@ -898,24 +896,24 @@ decimalAdjustA decimal-adjusts the number
 
 this is nuts
 */
-func (gb *Gameboy) decimalAdjustA() {
-	if !gb.getNFlag() {
-		if gb.getCFlag() || gb.A > 0x99 {
-			gb.A += 0x000_0060
-			gb.setCFlag(true)
+func decimalAdjustA() {
+	if !getNFlag() {
+		if getCFlag() || aReg > 0x99 {
+			aReg += 0x000_0060
+			setCFlag(true)
 		}
-		if gb.getHFlag() || (gb.A&0x0f) > 0x09 {
-			gb.A += 0x000_0006
+		if getHFlag() || (aReg&0x0f) > 0x09 {
+			aReg += 0x000_0006
 		}
 	} else {
-		if gb.getCFlag() {
-			gb.A -= 0x000_0060
+		if getCFlag() {
+			aReg -= 0x000_0060
 		}
-		if gb.getHFlag() {
-			gb.A += 0x000_0006
+		if getHFlag() {
+			aReg += 0x000_0006
 		}
 	}
 
-	gb.setZFlag(gb.A == 0)
-	gb.setHFlag(false)
+	setZFlag(aReg == 0)
+	setHFlag(false)
 }

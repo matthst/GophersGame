@@ -7,34 +7,48 @@ import (
 )
 
 type Gameboy struct {
-	video     video.Video
-	audio     components.Audio
-	cartridge components.Cartridge
-	wram      components.WRAM
-	input     components.Input
-	timer     components.Timer
-
-	PC, SP                           uint16
-	A, F, B, C, D, E, H, L           uint8
-	EICounter, IE, IF                uint8
-	IME, haltMode, haltBug, stopMode bool
 }
 
-func bootstrap(file []uint8) Gameboy {
+var (
+	audioC components.Audio
+	wramC  components.WRAM
+	timerC components.Timer
+	inputC components.Input
+	cart   components.Cartridge
+	vid    video.Video
 
-	gb := Gameboy{PC: 0x0100, SP: 0xFFFE, A: 0x01, F: 0x00, B: 0x00, C: 0x13, D: 0x00, E: 0xD8, H: 0x01, L: 0x4D}
+	EICounter, IE, IF                uint8
+	IME, haltMode, haltBug, stopMode bool
+
+	SP                                             uint16
+	PC                                             uint16
+	aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg uint8
+)
+
+func bootstrap(file []uint8) {
+
+	PC = 0x0100
+	SP = 0xFFFE
+	aReg = 0x01
+	fReg = 0x00
+	bReg = 0x00
+	cReg = 0x13
+	dReg = 0x00
+	eReg = 0xD8
+	hReg = 0x01
+	lReg = 0x4D
 
 	switch file[0x0147] {
 	case 0x00:
-		gb.cartridge = components.RomOnly{Rom: file}
+		cart = components.RomOnly{Rom: file}
 	default:
 		panic(fmt.Sprintf("Opcode '%X' not implemented", file[0x0148]))
 	}
-
-	return gb
 }
 
-func (gb *Gameboy) tick() {
+func tick() {
+
+	IF |= vid.Tick()
 
 }
 
@@ -42,158 +56,158 @@ func (gb *Gameboy) runInstructionCycle() {
 
 	gb.interruptServiceRoutine()
 
-	if !gb.haltMode {
-		gb.execNextInstr()
+	if !haltMode {
+		execNextInstr()
 	}
 
-	if gb.EICounter > 0 {
-		if gb.EICounter == 1 {
-			gb.IME = true
+	if EICounter > 0 {
+		if EICounter == 1 {
+			IME = true
 		}
-		gb.EICounter--
+		EICounter--
 	}
 }
 
 func (gb *Gameboy) interruptServiceRoutine() {
-	if gb.IME {
-		availableInterrupts := gb.IE & gb.IF & 0x1F
+	if IME {
+		availableInterrupts := IE & IF & 0x1F
 		var interruptAddress uint16
-		switch availableInterrupts {
-		case 0b0000_0000:
+		switch {
+		case availableInterrupts == 0:
 			return
-		case 0b0000_0001:
+		case availableInterrupts&0b1 == 0b1:
 			interruptAddress = 0x40
-			gb.IF &= 0b000_0001
-		case 0b0000_0010:
+			IF &= 0b1111_1110
+		case availableInterrupts&0b10 == 0b10:
 			interruptAddress = 0x48
-			gb.IF &= 0b000_0010
-		case 0b0000_0100:
+			IF &= 0b1111_1101
+		case availableInterrupts&0b100 == 0b100:
 			interruptAddress = 0x50
-			gb.IF &= 0b000_0100
-		case 0b0000_1000:
+			IF &= 0b1111_1011
+		case availableInterrupts&0b1000 == 0b1000:
 			interruptAddress = 0x58
-			gb.IF &= 0b000_1000
-		case 0b0001_0000:
+			IF &= 0b1111_0111
+		case availableInterrupts&0b1_0000 == 0b1_0000:
 			interruptAddress = 0x60
-			gb.IF &= 0b001_0000
+			IF &= 0b1110_1111
 		default:
 			return
 		}
-		gb.IME = false
-		if gb.haltMode {
-			gb.haltMode = false
-			gb.tick()
-			gb.tick()
-			gb.tick()
-			gb.tick()
+		IME = false
+		if haltMode {
+			haltMode = false
+			tick()
+			tick()
+			tick()
+			tick()
 		}
-		gb.tick()
-		gb.rst(interruptAddress)
-	} else if gb.haltMode && gb.IE&gb.IF&0x1F != 0 {
-		gb.haltMode = false
-		gb.tick()
-		gb.tick()
-		gb.tick()
-		gb.tick()
+		tick()
+		rst(interruptAddress)
+	} else if haltMode && IE&IF&0x1F != 0 {
+		haltMode = false
+		tick()
+		tick()
+		tick()
+		tick()
 	}
 }
 
-func (gb *Gameboy) getImmediate() uint8 {
-	val := gb.load(gb.PC)
-	if !gb.haltBug {
-		gb.PC++
+func getImmediate() uint8 {
+	val := memConLoad(PC)
+	if !haltBug {
+		PC++
 	}
-	gb.tick()
+	tick()
 	return val
 }
 
-// write to the memory controller
-func (gb *Gameboy) write(val uint8, adr uint16) {
+// memConWrite to the memory controller
+func memConWrite(val uint8, adr uint16) {
 	switch {
-	case adr < 0x8000: // cartridge ROM
-		gb.cartridge.Write(val, adr)
+	case adr < 0x8000: // cart ROM
+		cart.Write(val, adr)
 	case adr < 0xA000: // VRAM
-		gb.video.Write(val, adr)
-	case adr < 0xD000: // cartridge RAM
-		gb.cartridge.Write(val, adr)
+		vid.Write(val, adr)
+	case adr < 0xD000: // cart RAM
+		cart.Write(val, adr)
 	case adr < 0xE000:
-		gb.wram.Write(val, adr)
+		wramC.Write(val, adr)
 	case adr < 0xFE00: //ECHO Ram
-		gb.wram.Write(val, adr-0x2000)
+		wramC.Write(val, adr-0x2000)
 	case adr < 0xFEA0: // OAM
-		gb.video.Write(val, adr)
+		vid.Write(val, adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return // TODO implement OAM corruption bug
 
 	// I/O Registers
 	case adr == 0xFF00: // input
-		gb.input.Write(val, adr)
+		inputC.Write(val, adr)
 	case adr < 0xFF03: // serial port
 		return // TODO implement serial port
 	case adr < 0xFF0F: // timer control
-		gb.timer.Write(val, adr)
+		timerC.Write(val, adr)
 	case adr == 0xFF0F: // IF flag
-		gb.IF = val
+		IF = val
 	case adr < 0xFF40: // audio + wave RAM
-		gb.audio.Write(val, adr)
+		audioC.Write(val, adr)
 	case adr == 0xFF4D: //CG
 		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		gb.video.Write(val, adr)
+		vid.Write(val, adr)
 	case adr == 0xFF70:
 		return // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
-		gb.wram.Write(val, adr)
+		wramC.Write(val, adr)
 	case adr == 0xFFFF:
-		gb.IE = val
+		IE = val
 	default:
 		panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
 	}
 
-	gb.tick()
+	tick()
 }
 
-// load from the memory controller
-func (gb *Gameboy) load(adr uint16) uint8 {
-	defer gb.tick()
+// memConLoad from the memory controller
+func memConLoad(adr uint16) uint8 {
+	defer tick()
 
 	switch {
 	case adr < 0x8000: // cartridge ROM
-		return gb.cartridge.Load(adr)
+		return cart.Load(adr)
 	case adr < 0xA000: // VRAM
-		return gb.video.Load(adr)
+		return vid.Load(adr)
 	case adr < 0xD000: // cartridge RAM
-		return gb.cartridge.Load(adr)
+		return cart.Load(adr)
 	case adr < 0xE000:
-		return gb.wram.Load(adr)
+		return wramC.Load(adr)
 	case adr < 0xFE00: //ECHO Ram
-		return gb.wram.Load(adr - 0x2000)
+		return wramC.Load(adr - 0x2000)
 	case adr < 0xFEA0: // OAM
-		return gb.video.Load(adr)
+		return vid.Load(adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return 0 // TODO implement OAM corruption bug
 
 	// I/O Registers
 	case adr == 0xFF00: // input
-		return gb.input.Load(adr)
+		return inputC.Load(adr)
 	case adr < 0xFF03: // serial port
 		return 1 // TODO implement serial port
 	case adr < 0xFF0F: // timer control
-		return gb.timer.Load(adr)
+		return timerC.Load(adr)
 	case adr == 0xFF0F: // IF flag
-		return gb.IF
+		return IF
 	case adr < 0xFF40: // audio + wave RAM
-		return gb.audio.Load(adr)
+		return audioC.Load(adr)
 	case adr == 0xFF4D: //CG
 		return 1 // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		return gb.video.Load(adr)
+		return vid.Load(adr)
 	case adr == 0xFF70:
 		return 1 // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
-		gb.wram.Load(adr)
+		wramC.Load(adr)
 	case adr == 0xFFFF:
-		return gb.IE
+		return IE
 	}
 
 	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))

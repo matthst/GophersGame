@@ -1,50 +1,50 @@
 package gameboy
 
-func (gb *Gameboy) execCBInstr() {
+func execCBInstr() {
 
-	opcode := gb.getImmediate() //fetch opcode
+	opcode := getImmediate() //fetch opcode
 
 	var reg *uint8
 	reg = new(uint8)
 
 	switch opcode & 0xF {
 	case 0x0, 0x8:
-		reg = &gb.B
+		reg = &bReg
 	case 0x1, 0x9:
-		reg = &gb.C
+		reg = &cReg
 	case 0x2, 0xA:
-		reg = &gb.D
+		reg = &dReg
 	case 0x3, 0xB:
-		reg = &gb.E
+		reg = &eReg
 	case 0x4, 0xC:
-		reg = &gb.H
+		reg = &hReg
 	case 0x5, 0xD:
-		reg = &gb.L
+		reg = &lReg
 	case 0x6, 0xE:
-		*reg = gb.load(gb.getHL())
+		*reg = memConLoad(getHL())
 	case 0x7, 0xF:
-		reg = &gb.A
+		reg = &aReg
 	}
 
 	switch i := opcode / 8; {
 	case i == 0:
-		gb.shiftCB(reg, gb.rotateLeftCircularInternal)
+		shiftCB(reg, rotateLeftCircularInternal)
 	case i == 1:
-		gb.shiftCB(reg, gb.rotateRightCircularInternal)
+		shiftCB(reg, rotateRightCircularInternal)
 	case i == 2:
-		gb.shiftCB(reg, gb.rotateLeftInternal)
+		shiftCB(reg, rotateLeftInternal)
 	case i == 3:
-		gb.shiftCB(reg, gb.rotateRightInternal)
+		shiftCB(reg, rotateRightInternal)
 	case i == 4:
-		gb.shiftCB(reg, gb.shiftLeftInternal)
+		shiftCB(reg, shiftLeftInternal)
 	case i == 5:
-		gb.shiftCB(reg, gb.shiftRightInternal)
+		shiftCB(reg, shiftRightInternal)
 	case i == 6:
-		gb.shiftCB(reg, gb.swapInternal)
+		shiftCB(reg, swapInternal)
 	case i == 7:
-		gb.shiftCB(reg, gb.shiftRightMSBResetInternal)
+		shiftCB(reg, shiftRightMSBResetInternal)
 	case i < 16:
-		gb.setZFlagCB(reg, i-8)
+		setZFlagCB(reg, i-8)
 	case i < 24:
 		*reg = setBitCB(*reg, i-16)
 	default:
@@ -52,13 +52,13 @@ func (gb *Gameboy) execCBInstr() {
 	}
 
 	if i := opcode & 0xF; !(opcode < 0x40 || opcode > 0x7F) && i == 0x6 || i == 0xE {
-		gb.write(*reg, gb.getHL())
+		memConWrite(*reg, getHL())
 	}
 }
 
-func (gb *Gameboy) shiftCB(reg *uint8, funcDef shiftInternalFuncDef) {
+func shiftCB(reg *uint8, funcDef shiftInternalFuncDef) {
 	*reg = funcDef(*reg)
-	gb.setZFlag(*reg == 0)
+	setZFlag(*reg == 0)
 }
 
 func setBitCB(val, bit uint8) uint8 {
@@ -69,8 +69,8 @@ func unsetBitCB(val, bit uint8) uint8 {
 	return val & (^(0b0000_0001 << bit))
 }
 
-func (gb *Gameboy) setZFlagCB(reg *uint8, bit uint8) {
-	gb.setZFlag((*reg>>bit)&0x01 == 1)
-	gb.setNFlag(false)
-	gb.setHFlag(true)
+func setZFlagCB(reg *uint8, bit uint8) {
+	setZFlag((*reg>>bit)&0x01 == 1)
+	setNFlag(false)
+	setHFlag(true)
 }
