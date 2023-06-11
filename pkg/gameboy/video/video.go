@@ -1,6 +1,9 @@
 package video
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"github.com/hajimehoshi/ebiten/v2"
+	"image/color"
+)
 
 type Video struct {
 
@@ -10,89 +13,188 @@ type Video struct {
 
 	// TODO [GBC] Hi-Color Mode
 	// TODO OAM DMA TRANSFER
-	// TODO LCD STAT Interrupt handling
-	// TODO LYC LY FLAG
 
 	// data section
-	tileData []uint8
+	vram []uint8
+	oam  []uint8
 
-	tileMaps []uint8
-
-	scanLineCycleCount, StatMode int
-
-	SCX, SCY, WX, WY, LY, LYC, LCDC uint8
-
-	LYCLY, LYCLYStatI, Mode2OAMStatI, Mode1VBlankStatI, Mode0HBlankStatI, statBlock bool
+	bgPalette, obPalette0, obPalette1 [4]color.Color
+	bgp, obp0, obp1                   uint8
 }
 
-func (v *Video) Load(adr uint16) uint8 {
+var (
+	monochromePalette = [4]color.Color{color.Gray{0x00}, color.Gray{0x0F}, color.Gray{0xF0}, color.Gray{0xFF}}
 
-	switch {
-	case adr == 0xFF44:
-		return v.LY
+	scanLineCycleCount int
+
+	scx, scy, wx, wy, ly, lyc, lcdc, stat, statMode uint8
+
+	statBlock bool
+)
+
+func (v *Video) LoadFromVRAM(adr uint16) uint8 {
+	if statMode == 3 {
+		return 0xFF
 	}
-
-	// TODO
-	return 1
+	return v.vram[adr-0x8000]
 }
 
-func (v *Video) Write(val uint8, adr uint16) {
+func (v *Video) LoadFromOAM(adr uint16) uint8 {
+	if statMode > 1 {
+		return 0xFF
+	}
+	return v.oam[adr-0xFE00]
+}
 
-	if v.StatMode != 3 { // TODO access control because of vblank periods
-		switch {
-		}
+func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
+	switch adr { //IO Registers
+	case 0xFF40:
+		return lcdc
+	case 0xFF41:
+		return (stat & 0b0111_1100) + statMode
+	case 0xFF42:
+		return scy
+	case 0xFF43:
+		return scx
+	case 0xFF44:
+		return ly
+	case 0xFF45:
+		return lyc
+	case 0xFF46:
+		// TODO OAM COPY handling
+	case 0xFF47:
+		return v.bgp //TODO [CGB] palette handling (don't forget no access during Mode 3
+	case 0xFF48:
+		return v.obp0
+	case 0xFF49:
+		return v.obp1
+	case 0xFF4A:
+		return wy
+	case 0xFF4B:
+		return wx
+	case 0xFF4D:
+		return 0x00 // TODO [CGB] speed switching
+	case 0xFF4F:
+		return 0x00 // TODO [CGB] vram bank switching
+	case 0xFF55:
+		return 0x00 // TODO [CGB] more stuff
+	}
+	return 0xFF
+}
+
+func (v *Video) WriteToVRAM(val uint8, adr uint16) {
+	if statMode != 3 {
+		v.vram[adr-0x8000] = val
 	}
 }
 
-// Tick executes an mCycle for the video controller and returns interrupts if any occur
-func (v *Video) Tick() uint8 {
+func (v *Video) WriteToOAM(val uint8, adr uint16) {
+	if statMode < 2 {
+		v.vram[adr-0xFE00] = val
+	}
+}
+
+func (v *Video) WriteToIORegisters(val uint8, adr uint16) {
+	switch adr {
+	case 0xFF40:
+		lcdc = val
+	case 0xFF41:
+		stat = (val & 0b0111_1000) | statMode
+	case 0xFF42:
+		scy = val
+	case 0xFF43:
+		scx = val
+	case 0xFF45:
+		lyc = val
+	case 0xFF46:
+		// TODO OAM COPY handling
+	case 0xFF47:
+		v.bgp = val //TODO [CGB] palette handling
+		updatePalette(val, &v.bgPalette)
+	case 0xFF48:
+		v.obp0 = val
+		updatePalette(val, &v.obPalette0)
+	case 0xFF49:
+		v.obp1 = val
+		updatePalette(val, &v.obPalette1)
+	case 0xFF4A:
+		wy = val
+	case 0xFF4B:
+		wx = val
+		// TODO [CGB] speed switching
+		// TODO [CGB] vram bank switching
+		// TODO [CGB]
+	}
+}
+
+// MCycle executes an mCycle for the video controller and returns interrupts if any occur
+func (v *Video) MCycle() uint8 {
 	statResult := uint8(0)
-	v.scanLineCycleCount++
-	if v.scanLineCycleCount == 114 {
-		v.scanLineCycleCount = 0 // MODE 2, search
-		v.StatMode = 2
-		v.LY++
+	scanLineCycleCount++
+	if scanLineCycleCount == 114 {
+		scanLineCycleCount = 0 // MODE 2, Search
+		statMode = 2
+		ly++
 
-		if v.LY == 144 { // MODE 1, VBLANK
-			v.StatMode = 1
+		if ly == 144 { // MODE 1, VBLANK
+			statMode = 1
 			statResult = 1
-		} else if v.LY == 154 {
-			v.LY = 0
+		} else if ly == 154 {
+			ly = 0
 		}
 	}
 
-	if v.LY < 144 {
+	if ly < 144 {
 		switch {
-		case v.scanLineCycleCount == 20: // MODE 3, transfer to LCD controller
-			v.StatMode = 3
+		case scanLineCycleCount == 20: // MODE 3, transfer to LCD controller
+			statMode = 3
 			// TODO draw scanLine
-		case v.scanLineCycleCount == 63: // MODE 0, HBLANK
-			v.StatMode = 0
+		case scanLineCycleCount == 63: // MODE 0, HBLANK
+			statMode = 0
 		}
 	}
-
 	// interrupt handling
 	statInterruptSource := false
-	v.LYCLY = v.LYC == v.LY
+	if lyc == ly {
+		statMode |= 0b0100
+	} else {
+		statMode &= 0b1011
+	}
 
 	switch {
-	case v.StatMode == 0 && v.Mode0HBlankStatI:
+	case statMode == 0 && stat&0b1000 != 0:
 		statInterruptSource = true
-	case v.StatMode == 1 && v.Mode1VBlankStatI:
+	case statMode == 1 && stat&0b0001_0000 != 0:
 		statInterruptSource = true
-	case v.StatMode == 2 && v.Mode2OAMStatI:
+	case statMode == 2 && stat&0b0010_0000 != 0:
 		statInterruptSource = true
-	case v.LYCLY && v.LYCLYStatI:
+	case stat&0b_0100 != 0 && stat&0b0100_0000 != 0:
 		statInterruptSource = true
-
 	}
 
 	if !statInterruptSource {
-		v.statBlock = false
-	} else if statInterruptSource && !v.statBlock {
+		statBlock = false
+	} else if statInterruptSource && !statBlock {
 		statResult |= 0b10
-		v.statBlock = true
+		statBlock = true
 	}
 
 	return statResult
+}
+
+func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color palette handling
+	for i := 0; i < 4; i++ {
+		palette[i] = monochromePalette[((val >> (i * 2)) & 0b11)]
+	}
+}
+
+func drawScanLine() {
+	for x := 0; x < 160; x++ {
+		//OBJ
+
+		//Window
+
+		//BG
+
+	}
 }

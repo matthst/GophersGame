@@ -13,9 +13,9 @@ func execNextInstr() {
 	case 0x10:
 		stop()
 	case 0x20:
-		JumpRelativeI8(!getZFlag())
+		jumpRelativeI8(!getZFlag())
 	case 0x30:
-		JumpRelativeI8(!getNFlag())
+		jumpRelativeI8(!getNFlag())
 	case 0x01:
 		loadI16(&bReg, &cReg)
 	case 0x11:
@@ -75,11 +75,11 @@ func execNextInstr() {
 	case 0x08:
 		storeSPI16()
 	case 0x18:
-		JumpRelativeI8(true)
+		jumpRelativeI8(true)
 	case 0x28:
-		JumpRelativeI8(getZFlag())
+		jumpRelativeI8(getZFlag())
 	case 0x38:
-		JumpRelativeI8(getCFlag())
+		jumpRelativeI8(getCFlag())
 	case 0x09:
 		addR16R16(getWord(bReg, cReg))
 	case 0x19:
@@ -409,15 +409,15 @@ func execNextInstr() {
 	case 0xF1:
 		pop(&aReg, &fReg)
 	case 0xC2:
-		JumpI16(!getZFlag())
+		jumpI16(!getZFlag())
 	case 0xD2:
-		JumpI16(!getCFlag())
+		jumpI16(!getCFlag())
 	case 0xE2:
 		storeAC()
 	case 0xF2:
 		loadAC()
 	case 0xC3:
-		JumpI16(true)
+		jumpI16(true)
 	case 0xF3:
 		disableInterrupts()
 	case 0xC4:
@@ -465,9 +465,9 @@ func execNextInstr() {
 	case 0xF9:
 		loadHLSP()
 	case 0xCA:
-		JumpI16(getZFlag())
+		jumpI16(getZFlag())
 	case 0xDA:
-		JumpI16(getCFlag())
+		jumpI16(getCFlag())
 	case 0xEA:
 		storeAMI16()
 	case 0xFA:
@@ -530,21 +530,21 @@ func enableInterrupts() {
 }
 
 // JumpI16 conditional jump
-func JumpI16(flag bool) {
+func jumpI16(flag bool) {
 	lo := getImmediate()
 	hi := getImmediate()
 	if flag {
 		PC = getWord(hi, lo)
-		tick()
+		mCycle()
 	}
 }
 
 // JumpRelativeI8 relative conditional jump
-func JumpRelativeI8(flag bool) {
+func jumpRelativeI8(flag bool) {
 	im8 := getImmediate()
 	if flag {
 		PC += uint16(im8)
-		tick()
+		mCycle()
 	}
 }
 
@@ -553,12 +553,12 @@ func jumpHL() {
 }
 
 func retCond(cond bool) {
-	tick()
+	mCycle()
 	if cond {
 		P := memConLoad(getAndIncSP())
 		S := memConLoad(getAndIncSP())
 		PC = getWord(S, P)
-		tick()
+		mCycle()
 	}
 }
 
@@ -566,7 +566,7 @@ func ret() {
 	P := memConLoad(getAndIncSP())
 	S := memConLoad(getAndIncSP())
 	PC = getWord(S, P)
-	tick()
+	mCycle()
 }
 
 func retInterrupt() {
@@ -578,7 +578,7 @@ func call(cond bool) {
 	lo := getImmediate()
 	hi := getImmediate()
 	if cond {
-		tick()
+		mCycle()
 		memConWrite(hi, getAndDecSP())
 		memConWrite(lo, getAndDecSP())
 	}
@@ -586,7 +586,7 @@ func call(cond bool) {
 
 func rst(adr uint16) {
 	P, C := getBytes(PC)
-	tick()
+	mCycle()
 	memConWrite(P, getAndDecSP())
 	memConWrite(C, getAndDecSP())
 	PC = adr
@@ -600,7 +600,7 @@ func loadI8(reg *uint8) {
 // loadR8R8 copy r2 into r1
 func loadR8R8(r1, r2 *uint8) {
 	*r1 = *r2
-	tick()
+	mCycle()
 }
 
 // loadI16 load a 16-bit immediate into a register
@@ -612,7 +612,7 @@ func loadI16(hi, lo *uint8) {
 // loadHLSP load the value of SP into HL
 func loadHLSP() {
 	setBytes(&hReg, &lReg, SP)
-	tick()
+	mCycle()
 }
 
 func loadI16SP() {
@@ -683,7 +683,7 @@ func storeAC() {
 }
 
 func push(hi, lo uint8) {
-	tick()
+	mCycle()
 	memConWrite(hi, getAndDecSP())
 	memConWrite(lo, getAndDecSP())
 }
@@ -697,13 +697,13 @@ func pop(hi, lo *uint8) {
 // incR16 increments a combine 16-bit register.
 func incR16(hi, lo *uint8) {
 	setBytes(hi, lo, getWord(*hi, *lo)+1)
-	tick()
+	mCycle()
 }
 
 // incSP increments a combine 16-bit register.
 func incSP() {
 	SP++
-	tick()
+	mCycle()
 }
 
 // incR8 increment the given 8-bit register
@@ -727,13 +727,13 @@ func incM8(adr uint16) {
 // decR16 increments a combine 16-bit register.
 func decR16(hi, lo *uint8) {
 	setBytes(hi, lo, getWord(*hi, *lo)-1)
-	tick()
+	mCycle()
 }
 
 // decSP increments a combine 16-bit register.
 func decSP() {
 	SP--
-	tick()
+	mCycle()
 }
 
 // decR8 decrement the given 8-bit register
@@ -761,13 +761,13 @@ func addR16R16(val uint16) {
 	setCFlag(HL+val < HL)
 	setNFlag(false)
 	setBytes(&hReg, &lReg, HL+val)
-	tick()
+	mCycle()
 }
 
 // addSPS8SP add the signed 2's complement immediate to the stack pointer and write it to HL
 func addSPS8SP() {
 	SP = addSPS8Internal()
-	tick()
+	mCycle()
 }
 
 // addSPS8HL add the signed 2's complement immediate to the stack pointer and write it to HL
@@ -790,7 +790,7 @@ func addSPS8Internal() uint16 {
 	val = ^val + 1 //get positive value from 2's complement signed number
 	setHFlag(halfCarrySubCheck8Bit(P, val))
 	setCFlag(P-val > P)
-	tick()
+	mCycle()
 	return SP - uint16(val)
 }
 

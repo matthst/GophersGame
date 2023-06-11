@@ -6,9 +6,6 @@ import (
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
 )
 
-type Gameboy struct {
-}
-
 var (
 	audioC components.Audio
 	wramC  components.WRAM
@@ -17,15 +14,18 @@ var (
 	cart   components.Cartridge
 	vid    video.Video
 
-	EICounter, IE, IF                uint8
-	IME, haltMode, haltBug, stopMode bool
+	mCycleCounter, mCycleOffset int
 
 	SP                                             uint16
 	PC                                             uint16
 	aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg uint8
+	EICounter, IE, IF                              uint8
+	IME, haltMode, haltBug, stopMode               bool
 )
 
 func bootstrap(file []uint8) {
+	mCycleCounter = 0
+	mCycleOffset = 0
 
 	PC = 0x0100
 	SP = 0xFFFE
@@ -46,15 +46,22 @@ func bootstrap(file []uint8) {
 	}
 }
 
-func tick() {
+func runOneTick() {
+	mCycleCounter = mCycleOffset
+	for mCycleCounter < 17556 {
+		runInstructionCycle()
+	}
 
-	IF |= vid.Tick()
+	mCycleOffset = mCycleCounter - 17556
+}
+
+func mCycle() {
+	IF |= vid.MCycle()
 
 }
 
-func (gb *Gameboy) runInstructionCycle() {
-
-	gb.interruptServiceRoutine()
+func runInstructionCycle() {
+	interruptServiceRoutine()
 
 	if !haltMode {
 		execNextInstr()
@@ -68,7 +75,7 @@ func (gb *Gameboy) runInstructionCycle() {
 	}
 }
 
-func (gb *Gameboy) interruptServiceRoutine() {
+func interruptServiceRoutine() {
 	if IME {
 		availableInterrupts := IE & IF & 0x1F
 		var interruptAddress uint16
@@ -96,19 +103,19 @@ func (gb *Gameboy) interruptServiceRoutine() {
 		IME = false
 		if haltMode {
 			haltMode = false
-			tick()
-			tick()
-			tick()
-			tick()
+			mCycle()
+			mCycle()
+			mCycle()
+			mCycle()
 		}
-		tick()
+		mCycle()
 		rst(interruptAddress)
 	} else if haltMode && IE&IF&0x1F != 0 {
 		haltMode = false
-		tick()
-		tick()
-		tick()
-		tick()
+		mCycle()
+		mCycle()
+		mCycle()
+		mCycle()
 	}
 }
 
@@ -117,7 +124,7 @@ func getImmediate() uint8 {
 	if !haltBug {
 		PC++
 	}
-	tick()
+	mCycle()
 	return val
 }
 
@@ -127,7 +134,7 @@ func memConWrite(val uint8, adr uint16) {
 	case adr < 0x8000: // cart ROM
 		cart.Write(val, adr)
 	case adr < 0xA000: // VRAM
-		vid.Write(val, adr)
+		vid.WriteToVRAM(val, adr)
 	case adr < 0xD000: // cart RAM
 		cart.Write(val, adr)
 	case adr < 0xE000:
@@ -135,7 +142,7 @@ func memConWrite(val uint8, adr uint16) {
 	case adr < 0xFE00: //ECHO Ram
 		wramC.Write(val, adr-0x2000)
 	case adr < 0xFEA0: // OAM
-		vid.Write(val, adr)
+		vid.WriteToOAM(val, adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return // TODO implement OAM corruption bug
 
@@ -153,7 +160,7 @@ func memConWrite(val uint8, adr uint16) {
 	case adr == 0xFF4D: //CG
 		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		vid.Write(val, adr)
+		vid.WriteToIORegisters(val, adr)
 	case adr == 0xFF70:
 		return // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
@@ -164,18 +171,18 @@ func memConWrite(val uint8, adr uint16) {
 		panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
 	}
 
-	tick()
+	mCycle()
 }
 
 // memConLoad from the memory controller
 func memConLoad(adr uint16) uint8 {
-	defer tick()
+	defer mCycle()
 
 	switch {
 	case adr < 0x8000: // cartridge ROM
 		return cart.Load(adr)
 	case adr < 0xA000: // VRAM
-		return vid.Load(adr)
+		return vid.LoadFromVRAM(adr)
 	case adr < 0xD000: // cartridge RAM
 		return cart.Load(adr)
 	case adr < 0xE000:
@@ -183,7 +190,7 @@ func memConLoad(adr uint16) uint8 {
 	case adr < 0xFE00: //ECHO Ram
 		return wramC.Load(adr - 0x2000)
 	case adr < 0xFEA0: // OAM
-		return vid.Load(adr)
+		return vid.LoadFromOAM(adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return 0 // TODO implement OAM corruption bug
 
@@ -201,7 +208,7 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFF4D: //CG
 		return 1 // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		return vid.Load(adr)
+		return vid.LoadFromIORegisters(adr)
 	case adr == 0xFF70:
 		return 1 // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
