@@ -3,6 +3,7 @@ package video
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"image/color"
+	"sort"
 )
 
 type Video struct {
@@ -29,7 +30,10 @@ var (
 
 	scx, scy, wx, wy, ly, lyc, lcdc, stat, statMode uint8
 
-	statBlock bool
+	statBlock, lycEqualsLY bool
+
+	// LCDC bool stuff
+	ppuEnable, winTileMapArea, winEnable, bgTileDataArea, bgTileMapArea, objSize, objEnable, bgWinEnable bool
 )
 
 func (v *Video) LoadFromVRAM(adr uint16) uint8 {
@@ -51,7 +55,11 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 	case 0xFF40:
 		return lcdc
 	case 0xFF41:
-		return (stat & 0b0111_1100) + statMode
+		lycEqualsLYVal := uint8(0)
+		if lycEqualsLY {
+			lycEqualsLYVal = 4
+		}
+		return (stat & 0b0111_1100) + lycEqualsLYVal + statMode
 	case 0xFF42:
 		return scy
 	case 0xFF43:
@@ -98,6 +106,7 @@ func (v *Video) WriteToIORegisters(val uint8, adr uint16) {
 	switch adr {
 	case 0xFF40:
 		lcdc = val
+		updateLCDCFlags()
 	case 0xFF41:
 		stat = (val & 0b0111_1000) | statMode
 	case 0xFF42:
@@ -155,11 +164,7 @@ func (v *Video) MCycle() uint8 {
 	}
 	// interrupt handling
 	statInterruptSource := false
-	if lyc == ly {
-		statMode |= 0b0100
-	} else {
-		statMode &= 0b1011
-	}
+	lycEqualsLY = lyc == ly
 
 	switch {
 	case statMode == 0 && stat&0b1000 != 0:
@@ -168,7 +173,7 @@ func (v *Video) MCycle() uint8 {
 		statInterruptSource = true
 	case statMode == 2 && stat&0b0010_0000 != 0:
 		statInterruptSource = true
-	case stat&0b_0100 != 0 && stat&0b0100_0000 != 0:
+	case lycEqualsLY && stat&0b0100_0000 != 0:
 		statInterruptSource = true
 	}
 
@@ -182,17 +187,66 @@ func (v *Video) MCycle() uint8 {
 	return statResult
 }
 
+func updateLCDCFlags() {
+	ppuEnable = lcdc&0b1000_0000 != 0
+	winTileMapArea = lcdc&0b0100_0000 != 0
+	winEnable = lcdc&0b0010_0000 != 0
+	bgTileDataArea = lcdc&0b0001_0000 != 0
+	bgTileMapArea = lcdc&0b0000_1000 != 0
+	objSize = lcdc&0b0000_0100 != 0
+	objEnable = lcdc&0b0000_0010 != 0
+	bgWinEnable = lcdc&0b0000_0001 != 0
+}
+
 func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color palette handling
 	for i := 0; i < 4; i++ {
 		palette[i] = monochromePalette[((val >> (i * 2)) & 0b11)]
 	}
 }
 
-func drawScanLine() {
-	for x := 0; x < 160; x++ {
+func (v *Video) drawScanLine() {
+	y := int(ly)
+	spriteHeight := uint8(8)
+	if objSize {
+		spriteHeight += 8
+	}
+
+	objIds := make([]int, 0)
+	// grab objects for drawing, up to 10
+	for oamIndex, selectIndex := 0, 0; oamIndex < 160 && selectIndex < 10; oamIndex += 4 {
+		if v.oam[oamIndex]+16 <= ly && v.oam[oamIndex]+16+spriteHeight >= ly {
+			objIds = append(objIds, oamIndex)
+			selectIndex++
+		}
+	}
+
+	//sort the chosen objects by their x coordinate to make iterating over them faster
+	sort.SliceIsSorted(objIds, func(a, b int) bool {
+		return v.oam[a+1] < v.oam[b+1]
+	})
+
+	for x := uint8(0); x < 160; x++ {
 		//OBJ
 
+		if objEnable {
+			for _, objId := range objIds {
+				if v.oam[objId+1]+8 > x || v.oam[objId+1]+16 < x {
+					continue
+				}
+
+			}
+		}
+
+		// BG and Window enable TODO [CGB] bg and window priority
+		if !bgWinEnable {
+			v.renderImage.Set(int(x), y, color.White)
+			continue
+		}
+
 		//Window
+		if winEnable {
+
+		}
 
 		//BG
 
