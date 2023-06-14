@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-const RenderScale = 1
+const RenderScale = 2
 const ViewportWidth = 160
 const ViewportHeight = 144
 
@@ -30,19 +30,19 @@ func updateTile(eTile *ebiten.Image, data [16]uint8) {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 320, 240
+	return 160 * RenderScale, 144 * RenderScale
 }
 
 func main() {
-	cartridge, _ := os.ReadFile("testing/blargh/cpu_instrs/individual/03-op sp,hl.gb")
+	cartridge, _ := os.ReadFile("testing/blargg/cpu_instrs/individual/04-op r,imm.gb")
 	gameboy.Bootstrap(cartridge)
 
 	myOp := &ebiten.DrawImageOptions{}
 	myOp.GeoM.Scale(RenderScale, RenderScale)
-	myOp.GeoM.Translate(10, 10)
-	myOp.Filter = ebiten.FilterLinear
+	myOp.GeoM.Translate(0, 0)
+	myOp.Filter = ebiten.FilterNearest
 
-	ebiten.SetWindowSize(1000, 1000)
+	ebiten.SetWindowSize(160*RenderScale, 144*RenderScale)
 	ebiten.SetWindowTitle("GophersGame")
 	if err := ebiten.RunGame(&Game{op: *myOp}); err != nil {
 		log.Fatal(err)

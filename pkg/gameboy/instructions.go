@@ -407,7 +407,7 @@ func execNextInstr() {
 	case 0xE1:
 		pop(&hReg, &lReg)
 	case 0xF1:
-		pop(&aReg, &fReg)
+		popAF()
 	case 0xC2:
 		jumpI16(!getZFlag())
 	case 0xD2:
@@ -706,6 +706,12 @@ func pop(hi, lo *uint8) {
 	*hi = memConLoad(getAndIncSP())
 }
 
+// pop load a 16bit value from memory into the register pair AF
+func popAF() {
+	fReg = memConLoad(getAndIncSP()) & 0xF0
+	aReg = memConLoad(getAndIncSP())
+}
+
 // incR16 increments a combine 16-bit register.
 func incR16(hi, lo *uint8) {
 	setBytes(hi, lo, getWord(*hi, *lo)+1)
@@ -776,7 +782,7 @@ func addR16R16(val uint16) {
 	mCycle()
 }
 
-// addSPS8SP add the signed 2's complement immediate to the stack pointer and write it to HL
+// addSPS8SP add the signed 2's complement immediate to the stack pointer and write it to SP
 func addSPS8SP() {
 	SP = addSPS8Internal()
 	mCycle()
@@ -791,19 +797,12 @@ func addSPS8HL() {
 func addSPS8Internal() uint16 {
 	val := getImmediate()
 	P := uint8(SP)
-	setZFlag(false)
-	setNFlag(false)
-	if val < 128 { // positive 2's complement value :=
-		setHFlag(halfCarryAddCheck8Bit(P, val))
-		setCFlag(P+val < P)
+	setFlags(false, false, halfCarryAddCheck8Bit(P, val), P+val < P)
+	mCycle()
+	if val < 128 {
 		return SP + uint16(val)
 	}
-	// negative 2's complement value
-	val = ^val + 1 //get positive value from 2's complement signed number
-	setHFlag(halfCarrySubCheck8Bit(P, val))
-	setCFlag(P-val > P)
-	mCycle()
-	return SP - uint16(val)
+	return SP - uint16(^val+1)
 }
 
 // addR8 add the 8-bit value of a register to A
@@ -814,10 +813,9 @@ func addR8(val uint8) {
 
 // adcR8 add the 8-bit value of a register to A
 func adcR8(val uint8) {
-	if getCFlag() {
-		val += 1
-	}
-	addR8(val)
+	c := getCarryValue()
+	setFlags(aReg+val+c == 0, false, halfCarryAdcCheck8Bit(aReg, val, c), aReg+val < aReg || aReg+val+c <= aReg)
+	aReg = aReg + val + c
 }
 
 // subR8 subtract the 8-bit value of a register from A
@@ -828,10 +826,9 @@ func subR8(val uint8) {
 
 // sbcR8 subtract the 8-bit value of a register from A
 func sbcR8(val uint8) {
-	if getCFlag() {
-		val += 1
-	}
-	subR8(val)
+	c := getCarryValue()
+	setFlags(aReg-val-c == 0, true, halfCarrySbcCheck8Bit(aReg, val, c), aReg-val > aReg)
+	aReg = aReg - val - c
 }
 
 // andR8 logical AND the 8-bit value of a register with A
@@ -911,18 +908,18 @@ this is nuts
 func decimalAdjustA() {
 	if !getNFlag() {
 		if getCFlag() || aReg > 0x99 {
-			aReg += 0x000_0060
+			aReg += 0x60
 			setCFlag(true)
 		}
 		if getHFlag() || (aReg&0x0f) > 0x09 {
-			aReg += 0x000_0006
+			aReg += 0x06
 		}
 	} else {
 		if getCFlag() {
-			aReg -= 0x000_0060
+			aReg -= 0x60
 		}
 		if getHFlag() {
-			aReg += 0x000_0006
+			aReg -= 0x06
 		}
 	}
 

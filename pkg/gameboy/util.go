@@ -82,15 +82,23 @@ func swapInternal(val uint8) uint8 {
 }
 
 func halfCarryAddCheck8Bit(a, b uint8) bool {
-	return (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10
+	return (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
 }
 
 func halfCarrySubCheck8Bit(a, b uint8) bool {
-	return (((a & 0xf) - (b & 0xf)) & 0x10) == 0x10
+	return (((a & 0xF) - (b & 0xF)) & 0x10) == 0x10
+}
+
+func halfCarryAdcCheck8Bit(a, b, c uint8) bool {
+	return (((a & 0xF) + (b & 0xF) + (c & 0xF)) & 0x10) == 0x10
+}
+
+func halfCarrySbcCheck8Bit(a, b, c uint8) bool {
+	return (((a & 0xF) - (b & 0xF) - (c & 0xF)) & 0x10) == 0x10
 }
 
 func halfCarryAddCheck16Bit(a, b uint16) bool {
-	return (((a & 0xf00) + (b & 0xf00)) & 0x1000) == 0x1000
+	return (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) == 0x1000
 }
 
 ///////////////////////////////////////

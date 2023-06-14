@@ -220,7 +220,7 @@ func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color pale
 func (v *Video) drawScanLine() {
 
 	//setup for BG and Win
-	bgMapBaseAddress := 0x1800 + (uint16(ly-scy)/8)*32 //background map base address with right row selected
+	bgMapBaseAddress := 0x1800 + (uint16(ly-scy)/8)*16 //background map base address with right row selected
 	if bgTileMapArea {
 
 		bgMapBaseAddress += 0x0400 //switch bg map to second map if needed
