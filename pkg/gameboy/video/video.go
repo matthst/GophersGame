@@ -16,8 +16,9 @@ type Video struct {
 	// TODO OAM DMA TRANSFER
 
 	// data section
-	vram [0x2000]uint8
-	oam  [0x1000]uint8
+	tileData [0x1800]uint8
+	tileMaps [0x0800]uint8
+	oam      [0x1000]uint8
 
 	bgPalette, obPalette0, obPalette1 [4]color.Color
 	bgp, obp0, obp1                   uint8
@@ -52,7 +53,11 @@ func (v *Video) LoadFromVRAM(adr uint16) uint8 {
 	if statMode == 3 {
 		return 0xFF
 	}
-	return v.vram[adr-0x8000]
+	if adr < 0x9800 {
+		return v.tileData[adr-0x8000]
+	} else {
+		return v.tileMaps[adr-0x9800]
+	}
 }
 
 func (v *Video) LoadFromOAM(adr uint16) uint8 {
@@ -82,6 +87,7 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 		return lyc
 	case 0xFF46:
 		// TODO OAM COPY handling
+		panic("OAM Copy not implemented")
 	case 0xFF47:
 		return v.bgp //TODO [CGB] palette handling (don't forget no access during Mode 3
 	case 0xFF48:
@@ -103,14 +109,18 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 }
 
 func (v *Video) WriteToVRAM(val uint8, adr uint16) {
-	if statMode != 3 {
-		v.vram[adr-0x8000] = val
+	if true || statMode < 3 { // FIXME why is this BROKEN
+		if adr < 0x9800 {
+			v.tileData[adr-0x8000] = val
+		} else {
+			v.tileMaps[adr-0x9800] = val
+		}
 	}
 }
 
 func (v *Video) WriteToOAM(val uint8, adr uint16) {
-	if statMode < 2 {
-		v.vram[adr-0xFE00] = val
+	if statMode < 2 { // FIXME check if this is BROKEN TOO?
+		v.oam[adr-0xFE00] = val
 	}
 }
 
@@ -154,8 +164,7 @@ func (v *Video) MCycle() uint8 {
 	statResult := uint8(0)
 	scanLineCycleCount++
 	if scanLineCycleCount == 114 {
-		scanLineCycleCount = 0 // MODE 2, Search
-		statMode = 2
+		scanLineCycleCount = 0
 		ly++
 
 		if ly == 144 { // MODE 1, VBLANK
@@ -168,6 +177,8 @@ func (v *Video) MCycle() uint8 {
 
 	if ly < 144 {
 		switch {
+		case scanLineCycleCount == 0: // MODE 2, Search
+			statMode = 2
 		case scanLineCycleCount == 20: // MODE 3, transfer to LCD controller
 			statMode = 3
 			v.drawScanLine()
@@ -200,7 +211,7 @@ func (v *Video) MCycle() uint8 {
 	return statResult
 }
 
-func updateLCDCFlags() {
+func updateLCDCFlags() { //TODO add LCDC turning off / on
 	ppuEnable = lcdc&0b1000_0000 != 0
 	winTileMapArea = lcdc&0b0100_0000 != 0
 	winEnable = lcdc&0b0010_0000 != 0
@@ -218,11 +229,10 @@ func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color pale
 }
 
 func (v *Video) drawScanLine() {
-
 	//setup for BG and Win
-	bgMapBaseAddress := 0x1800 + (uint16(ly-scy)/8)*16 //background map base address with right row selected
+	ySCYOffset := uint16(ly + scy)
+	bgMapBaseAddress := (ySCYOffset / 8) * 32 //background map base address with right row selected
 	if bgTileMapArea {
-
 		bgMapBaseAddress += 0x0400 //switch bg map to second map if needed
 	}
 
@@ -279,16 +289,15 @@ DrawLoop:
 		}
 
 		//BG
-		// TODO get pixel from BG
-
-		tileIndexAddress := bgMapBaseAddress + uint16(x-scx)/8
-		baseTileIndex := uint16(v.vram[tileIndexAddress])
-		tileAddress := baseTileIndex*16 + (uint16(ly)%8)*2
+		xSCXOffset := uint16(x + scx)
+		tileIndexAddress := bgMapBaseAddress + xSCXOffset/8
+		baseTileIndex := uint16(v.tileMaps[tileIndexAddress])
+		tileByteRowAddr := baseTileIndex*16 + (ySCYOffset%8)*2
 		if !bgWinAddressingMode && baseTileIndex < 128 {
-			tileAddress += 0x1000
+			tileByteRowAddr += 0x1000
 		}
-		xOffset := 6 - x%8
-		colorIndex := (v.vram[tileAddress]>>xOffset+1)&0b1 + (v.vram[tileAddress]>>xOffset)&0b10
+		xOffset := 7 - xSCXOffset%8
+		colorIndex := ((v.tileData[tileByteRowAddr] >> xOffset) & 1) + (((v.tileData[tileByteRowAddr+1] >> xOffset) << 1) & 2)
 		v.RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
 	}
 

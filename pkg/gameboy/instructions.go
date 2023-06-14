@@ -1,7 +1,5 @@
 package gameboy
 
-import "fmt"
-
 func execNextInstr() {
 
 	opcode := getImmediate() //fetch opcode
@@ -133,7 +131,7 @@ func execNextInstr() {
 	case 0x1F:
 		rotateRightA()
 	case 0x2F:
-		complementR8(&aReg)
+		complementA()
 	case 0x3F:
 		setCarryFlag(!getCFlag())
 	case 0x40:
@@ -499,16 +497,15 @@ func execNextInstr() {
 	case 0xFF:
 		rst(0x38)
 	default:
-		panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
+		//panic(fmt.Sprintf("Opcode '%X' is not a valid opcode", opcode))
 	}
 }
 
 func nop() {
 }
 
-func stop() int {
+func stop() {
 	// TODO implement the stop instruction
-	panic("Stop instruction (0x10) not implemented")
 }
 
 func halt() {
@@ -814,7 +811,7 @@ func addR8(val uint8) {
 // adcR8 add the 8-bit value of a register to A
 func adcR8(val uint8) {
 	c := getCarryValue()
-	setFlags(aReg+val+c == 0, false, halfCarryAdcCheck8Bit(aReg, val, c), aReg+val < aReg || aReg+val+c <= aReg)
+	setFlags(aReg+val+c == 0, false, halfCarryAdcCheck8Bit(aReg, val, c), aReg+val+c <= aReg && (val > 0 || c > 0))
 	aReg = aReg + val + c
 }
 
@@ -827,7 +824,7 @@ func subR8(val uint8) {
 // sbcR8 subtract the 8-bit value of a register from A
 func sbcR8(val uint8) {
 	c := getCarryValue()
-	setFlags(aReg-val-c == 0, true, halfCarrySbcCheck8Bit(aReg, val, c), aReg-val > aReg)
+	setFlags(aReg-val-c == 0, true, halfCarrySbcCheck8Bit(aReg, val, c), aReg-val-c >= aReg && (val > 0 || c > 0))
 	aReg = aReg - val - c
 }
 
@@ -868,9 +865,11 @@ func aluM8(aluFunc aluR8Def) {
 	aluFunc(val)
 }
 
-// complementR8 bit-swap the register
-func complementR8(r *uint8) {
-	*r = ^*r
+// complementA bit-swap the A register
+func complementA() {
+	aReg = ^aReg
+	setNFlag(true)
+	setHFlag(true)
 }
 
 // rotateLeftCircularA circular rotate register A left

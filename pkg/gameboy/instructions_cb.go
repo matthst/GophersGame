@@ -46,12 +46,12 @@ func execCBInstr() {
 	case i < 16:
 		setZFlagCB(reg, i-8)
 	case i < 24:
-		*reg = setBitCB(*reg, i-16)
+		*reg = unsetBitCB(*reg, i-16)
 	default:
-		*reg = unsetBitCB(*reg, i-24)
+		*reg = setBitCB(*reg, i-24)
 	}
 
-	if i := opcode & 0xF; !(opcode < 0x40 || opcode > 0x7F) && i == 0x6 || i == 0xE {
+	if i := opcode & 0xF; !(opcode < 0x40 || opcode > 0x7F) && (i == 0x6 || i == 0xE) {
 		memConWrite(*reg, getHL())
 	}
 }
@@ -70,7 +70,7 @@ func unsetBitCB(val, bit uint8) uint8 {
 }
 
 func setZFlagCB(reg *uint8, bit uint8) {
-	setZFlag((*reg>>bit)&0x01 == 1)
+	setZFlag((*reg>>bit)&0x01 == 0)
 	setNFlag(false)
 	setHFlag(true)
 }

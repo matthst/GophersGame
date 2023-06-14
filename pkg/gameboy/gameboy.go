@@ -189,9 +189,8 @@ func memConWrite(val uint8, adr uint16) {
 	case adr == 0xFFFF:
 		IE = val
 	default:
-		panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
+		//panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
 	}
-
 	mCycle()
 }
 
@@ -237,6 +236,6 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFFFF:
 		return IE
 	}
-
-	panic(fmt.Sprintf("CPU tried to write to memory address '%X', but no implementation exists.", adr))
+	return 0x00
+	//panic(fmt.Sprintf("CPU tried to write to memory address '%X', but no implementation exists.", adr))
 }
