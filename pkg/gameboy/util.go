@@ -182,8 +182,6 @@ func getCarryValue() uint8 {
 // memConLoad from the memory controller
 func debugLoad(adr uint16) uint8 {
 	switch {
-	case adr == 0xFF44: //TODO REMOVEME
-		return 0x90
 	case adr < 0x8000: // cartridge ROM
 		return cart.Load(adr)
 	case adr < 0xA000: // VRAM

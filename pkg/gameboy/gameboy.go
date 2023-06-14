@@ -47,7 +47,7 @@ func Bootstrap(file []uint8) {
 
 	switch file[0x0147] {
 	case 0x00, 0x01:
-		cart = components.CreateRomOnly(file)
+		cart = components.CreateMBC1(file)
 	default:
 		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
@@ -55,6 +55,7 @@ func Bootstrap(file []uint8) {
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
+	timerC = components.Timer{}
 }
 
 func logLine() {
@@ -73,6 +74,7 @@ func RunOneTick() {
 
 func mCycle() {
 	IF |= Vid.MCycle()
+	IF |= timerC.Cycle()
 	mCycleCounter++
 
 }
@@ -81,7 +83,7 @@ func runInstructionCycle() {
 	interruptServiceRoutine()
 
 	if !haltMode {
-		logLine()
+		// logLine()
 		execNextInstr()
 		opcodeExecuteCounter++
 	}
@@ -198,8 +200,6 @@ func memConLoad(adr uint16) uint8 {
 	defer mCycle()
 
 	switch {
-	case adr == 0xFF44: // TODO REMOVEME
-		return 0x90
 	case adr < 0x8000: // cartridge ROM
 		return cart.Load(adr)
 	case adr < 0xA000: // VRAM
