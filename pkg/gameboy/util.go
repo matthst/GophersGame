@@ -50,7 +50,7 @@ func rotateLeftCircularInternal(val uint8) uint8 {
 }
 
 func rotateRightInternal(val uint8) uint8 {
-	result := (val >> 1) + (getCarryValue() << 7)
+	result := (val >> 1) | (getCarryValue() << 7)
 	fReg = 0b0000_0000 + ((val & 0x1) << 4)
 	return result
 }
@@ -168,5 +168,51 @@ func setCFlag(val bool) {
 }
 
 func getCarryValue() uint8 {
-	return (fReg >> 4) % 0b0000_0001
+	return (fReg >> 4) & 0b0000_0001
+}
+
+// memConLoad from the memory controller
+func debugLoad(adr uint16) uint8 {
+	switch {
+	case adr == 0xFF44: //TODO REMOVEME
+		return 0x90
+	case adr < 0x8000: // cartridge ROM
+		return cart.Load(adr)
+	case adr < 0xA000: // VRAM
+		return Vid.LoadFromVRAM(adr)
+	case adr < 0xC000: // cartridge RAM
+		return cart.Load(adr)
+	case adr < 0xE000:
+		return wramC.Load(adr)
+	case adr < 0xFE00: //ECHO Ram
+		return wramC.Load(adr - 0x2000)
+	case adr < 0xFEA0: // OAM
+		return Vid.LoadFromOAM(adr)
+	case adr < 0xFF00: //OAM corruption bug
+		return 0 // TODO implement OAM corruption bug
+
+	// I/O Registers
+	case adr == 0xFF00: // input
+		return inputC.Load(adr)
+	case adr < 0xFF03: // serial port
+		return 1 // TODO implement serial port
+	case adr < 0xFF0F: // timer control
+		return timerC.Load(adr)
+	case adr == 0xFF0F: // IF flag
+		return IF
+	case adr < 0xFF40: // audio + wave RAM
+		return audioC.Load(adr)
+	case adr == 0xFF4D: //CG
+		return 1 // TODO: [CGB] KEY1 Prepare Speed Switch
+	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
+		return Vid.LoadFromIORegisters(adr)
+	case adr == 0xFF70:
+		return 1 // TODO [CGB] WRAM bank switch
+	case adr >= 0xFF80:
+		return hramC.Load(adr)
+	case adr == 0xFFFF:
+		return IE
+	}
+
+	return 0xFF
 }

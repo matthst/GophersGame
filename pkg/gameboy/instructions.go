@@ -15,7 +15,7 @@ func execNextInstr() {
 	case 0x20:
 		jumpRelativeI8(!getZFlag())
 	case 0x30:
-		jumpRelativeI8(!getNFlag())
+		jumpRelativeI8(!getCFlag())
 	case 0x01:
 		loadI16(&bReg, &cReg)
 	case 0x11:
@@ -483,13 +483,13 @@ func execNextInstr() {
 	case 0xCD:
 		call(true)
 	case 0xCE:
-		aluM8(adcR8)
+		aluI8(adcR8)
 	case 0xDE:
-		aluM8(sbcR8)
+		aluI8(sbcR8)
 	case 0xEE:
-		aluM8(xorR8)
+		aluI8(xorR8)
 	case 0xFE:
-		aluM8(cpR8)
+		aluI8(cpR8)
 	case 0xCF:
 		rst(0x08)
 	case 0xDF:
@@ -543,13 +543,17 @@ func jumpI16(flag bool) {
 func jumpRelativeI8(flag bool) {
 	im8 := getImmediate()
 	if flag {
-		PC += uint16(im8)
+		if im8 < 128 {
+			PC += uint16(im8)
+		} else {
+			PC -= uint16(^im8 + 1)
+		}
 		mCycle()
 	}
 }
 
 func jumpHL() {
-	SP = getHL()
+	PC = getHL()
 }
 
 func retCond(cond bool) {
@@ -563,9 +567,9 @@ func retCond(cond bool) {
 }
 
 func ret() {
+	C := memConLoad(getAndIncSP())
 	P := memConLoad(getAndIncSP())
-	S := memConLoad(getAndIncSP())
-	PC = getWord(S, P)
+	PC = getWord(P, C)
 	mCycle()
 }
 
@@ -578,17 +582,23 @@ func call(cond bool) {
 	lo := getImmediate()
 	hi := getImmediate()
 	if cond {
+		P, C := getBytes(PC)
 		mCycle()
-		memConWrite(hi, getAndDecSP())
-		memConWrite(lo, getAndDecSP())
+		SP--
+		memConWrite(P, SP)
+		SP--
+		memConWrite(C, SP)
+		PC = getWord(hi, lo)
 	}
 }
 
 func rst(adr uint16) {
 	P, C := getBytes(PC)
 	mCycle()
-	memConWrite(P, getAndDecSP())
-	memConWrite(C, getAndDecSP())
+	SP--
+	memConWrite(P, SP)
+	SP--
+	memConWrite(C, SP)
 	PC = adr
 }
 
@@ -609,9 +619,9 @@ func loadI16(hi, lo *uint8) {
 	*hi = getImmediate()
 }
 
-// loadHLSP load the value of SP into HL
+// loadHLSP load the contents of register pair HL into the stack pointer SP
 func loadHLSP() {
-	setBytes(&hReg, &lReg, SP)
+	SP = getWord(hReg, lReg)
 	mCycle()
 }
 
@@ -684,8 +694,10 @@ func storeAC() {
 
 func push(hi, lo uint8) {
 	mCycle()
-	memConWrite(hi, getAndDecSP())
-	memConWrite(lo, getAndDecSP())
+	SP--
+	memConWrite(hi, SP)
+	SP--
+	memConWrite(lo, SP)
 }
 
 // pop load a 16bit value from memory and increment the stack pointer during the load (twice in total)
@@ -803,21 +815,21 @@ func addR8(val uint8) {
 // adcR8 add the 8-bit value of a register to A
 func adcR8(val uint8) {
 	if getCFlag() {
-		addR8(val + 1)
+		val += 1
 	}
 	addR8(val)
 }
 
 // subR8 subtract the 8-bit value of a register from A
 func subR8(val uint8) {
-	setFlags(aReg+val == 0, false, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
+	setFlags(aReg-val == 0, true, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
 	aReg -= val
 }
 
 // sbcR8 subtract the 8-bit value of a register from A
 func sbcR8(val uint8) {
 	if getCFlag() {
-		subR8(val + 1)
+		val += 1
 	}
 	subR8(val)
 }
@@ -842,7 +854,7 @@ func xorR8(val uint8) {
 
 // cpR8 compare the 8-bit value of a register with A
 func cpR8(val uint8) {
-	setFlags(aReg+val == 0, false, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
+	setFlags(aReg-val == 0, true, halfCarrySubCheck8Bit(aReg, val), aReg-val > aReg)
 }
 
 // aluR8Def function definition of an 8-bit alu function

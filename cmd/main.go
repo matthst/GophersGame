@@ -2,8 +2,9 @@ package main
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/matthst/gophersgame/pkg/gameboy"
 	"log"
+	"os"
 )
 
 const RenderScale = 1
@@ -11,19 +12,18 @@ const ViewportWidth = 160
 const ViewportHeight = 144
 
 type Game struct {
-	renderOutput *ebiten.Image
-	op           ebiten.DrawImageOptions
+	op ebiten.DrawImageOptions
 
 	Lightswitch bool
 }
 
 func (g *Game) Update() error {
+	gameboy.RunOneTick()
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-
-	ebitenutil.DebugPrint(screen, "Hello, World!")
+	screen.DrawImage(gameboy.Vid.RenderImage, &g.op)
 }
 
 func updateTile(eTile *ebiten.Image, data [16]uint8) {
@@ -34,16 +34,17 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
-	renderOutputImage := ebiten.NewImage(ViewportWidth, ViewportHeight)
+	cartridge, _ := os.ReadFile("testing/blargh/cpu_instrs/individual/03-op sp,hl.gb")
+	gameboy.Bootstrap(cartridge)
 
 	myOp := &ebiten.DrawImageOptions{}
 	myOp.GeoM.Scale(RenderScale, RenderScale)
-	myOp.GeoM.Translate(64, 64)
-	myOp.Filter = ebiten.FilterNearest
+	myOp.GeoM.Translate(10, 10)
+	myOp.Filter = ebiten.FilterLinear
 
-	ebiten.SetWindowSize(640, 480)
+	ebiten.SetWindowSize(1000, 1000)
 	ebiten.SetWindowTitle("GophersGame")
-	if err := ebiten.RunGame(&Game{renderOutput: renderOutputImage, op: *myOp}); err != nil {
+	if err := ebiten.RunGame(&Game{op: *myOp}); err != nil {
 		log.Fatal(err)
 	}
 }

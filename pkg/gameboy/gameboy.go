@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
+	"os"
 )
 
 var (
 	audioC components.Audio
 	wramC  components.WRAM
+	hramC  components.HRAM
 	timerC components.Timer
 	inputC components.Input
 	cart   components.Cartridge
-	vid    video.Video
+	Vid    video.Video
 
-	mCycleCounter, mCycleOffset int
+	log os.File
+
+	mCycleCounter, mCycleOffset, opcodeExecuteCounter int
 
 	SP                                             uint16
 	PC                                             uint16
@@ -23,14 +27,14 @@ var (
 	IME, haltMode, haltBug, stopMode               bool
 )
 
-func bootstrap(file []uint8) {
+func Bootstrap(file []uint8) {
 	mCycleCounter = 0
 	mCycleOffset = 0
 
 	PC = 0x0100
 	SP = 0xFFFE
 	aReg = 0x01
-	fReg = 0x00
+	fReg = 0xB0
 	bReg = 0x00
 	cReg = 0x13
 	dReg = 0x00
@@ -38,15 +42,27 @@ func bootstrap(file []uint8) {
 	hReg = 0x01
 	lReg = 0x4D
 
+	logFile, _ := os.OpenFile("text.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	log = *logFile
+
 	switch file[0x0147] {
-	case 0x00:
-		cart = components.RomOnly{Rom: file}
+	case 0x00, 0x01:
+		cart = components.CreateRomOnly(file)
 	default:
-		panic(fmt.Sprintf("Opcode '%X' not implemented", file[0x0148]))
+		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
+
+	Vid = video.GetDmgVideo()
+	wramC = components.WRAM{}
+	hramC = components.HRAM{}
 }
 
-func runOneTick() {
+func logLine() {
+	s := fmt.Sprintf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n", aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg, SP, PC, debugLoad(PC), debugLoad(PC+1), debugLoad(PC+2), debugLoad(PC+3))
+	_, _ = log.WriteString(s)
+}
+
+func RunOneTick() {
 	mCycleCounter = mCycleOffset
 	for mCycleCounter < 17556 {
 		runInstructionCycle()
@@ -56,7 +72,8 @@ func runOneTick() {
 }
 
 func mCycle() {
-	IF |= vid.MCycle()
+	IF |= Vid.MCycle()
+	mCycleCounter++
 
 }
 
@@ -64,7 +81,9 @@ func runInstructionCycle() {
 	interruptServiceRoutine()
 
 	if !haltMode {
+		logLine()
 		execNextInstr()
+		opcodeExecuteCounter++
 	}
 
 	if EICounter > 0 {
@@ -134,15 +153,15 @@ func memConWrite(val uint8, adr uint16) {
 	case adr < 0x8000: // cart ROM
 		cart.Write(val, adr)
 	case adr < 0xA000: // VRAM
-		vid.WriteToVRAM(val, adr)
-	case adr < 0xD000: // cart RAM
+		Vid.WriteToVRAM(val, adr)
+	case adr < 0xC000: // cart RAM
 		cart.Write(val, adr)
 	case adr < 0xE000:
 		wramC.Write(val, adr)
 	case adr < 0xFE00: //ECHO Ram
 		wramC.Write(val, adr-0x2000)
 	case adr < 0xFEA0: // OAM
-		vid.WriteToOAM(val, adr)
+		Vid.WriteToOAM(val, adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return // TODO implement OAM corruption bug
 
@@ -160,15 +179,15 @@ func memConWrite(val uint8, adr uint16) {
 	case adr == 0xFF4D: //CG
 		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		vid.WriteToIORegisters(val, adr)
+		Vid.WriteToIORegisters(val, adr)
 	case adr == 0xFF70:
 		return // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
-		wramC.Write(val, adr)
+		hramC.Write(val, adr)
 	case adr == 0xFFFF:
 		IE = val
 	default:
-		panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
+		panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
 	}
 
 	mCycle()
@@ -179,18 +198,20 @@ func memConLoad(adr uint16) uint8 {
 	defer mCycle()
 
 	switch {
+	case adr == 0xFF44: // TODO REMOVEME
+		return 0x90
 	case adr < 0x8000: // cartridge ROM
 		return cart.Load(adr)
 	case adr < 0xA000: // VRAM
-		return vid.LoadFromVRAM(adr)
-	case adr < 0xD000: // cartridge RAM
+		return Vid.LoadFromVRAM(adr)
+	case adr < 0xC000: // cartridge RAM
 		return cart.Load(adr)
 	case adr < 0xE000:
 		return wramC.Load(adr)
 	case adr < 0xFE00: //ECHO Ram
 		return wramC.Load(adr - 0x2000)
 	case adr < 0xFEA0: // OAM
-		return vid.LoadFromOAM(adr)
+		return Vid.LoadFromOAM(adr)
 	case adr < 0xFF00: //OAM corruption bug
 		return 0 // TODO implement OAM corruption bug
 
@@ -208,14 +229,14 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFF4D: //CG
 		return 1 // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
-		return vid.LoadFromIORegisters(adr)
+		return Vid.LoadFromIORegisters(adr)
 	case adr == 0xFF70:
 		return 1 // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
-		wramC.Load(adr)
+		return hramC.Load(adr)
 	case adr == 0xFFFF:
 		return IE
 	}
 
-	panic(fmt.Sprintf("CPU tried to access memory address '%X', but no implementation exists.", adr))
+	panic(fmt.Sprintf("CPU tried to write to memory address '%X', but no implementation exists.", adr))
 }
