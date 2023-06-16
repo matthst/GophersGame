@@ -39,7 +39,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
-	cartridge, _ := os.ReadFile("testing/tetris.gb")
+	cartridge, _ := os.ReadFile("testing/blargg/cpu_instrs/cpu_instrs.gb")
 	gameboy.Bootstrap(cartridge)
 
 	myOp := &ebiten.DrawImageOptions{}

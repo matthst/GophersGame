@@ -51,7 +51,7 @@ func execCBInstr() {
 		*reg = setBitCB(*reg, i-24)
 	}
 
-	if i := opcode & 0xF; !(opcode < 0x40 || opcode > 0x7F) && (i == 0x6 || i == 0xE) {
+	if i := opcode & 0xF; (opcode < 0x40 || opcode > 0x7F) && (i == 0x6 || i == 0xE) {
 		memConWrite(*reg, getHL())
 	}
 }
