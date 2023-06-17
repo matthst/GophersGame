@@ -2,29 +2,31 @@ package gameboy
 
 import (
 	"fmt"
+	"github.com/matthst/gophersgame/pkg/gameboy/Input"
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
 	"os"
 )
 
 var (
-	audioC components.Audio
-	wramC  components.WRAM
-	hramC  components.HRAM
-	timerC components.Timer
-	inputC components.Input
-	cart   components.Cartridge
-	Vid    video.Video
+	audioC  components.Audio
+	wramC   components.WRAM
+	hramC   components.HRAM
+	timerC  components.Timer
+	inputC  Input.Input
+	SerialC components.Serial
+	cart    components.Cartridge
+	Vid     video.Video
 
 	log os.File
 
-	mCycleCounter, mCycleOffset, opcodeExecuteCounter int
+	mCycleCounter, mCycleOffset int
 
 	SP                                             uint16
 	PC                                             uint16
 	aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg uint8
 	EICounter, IE, IF                              uint8
-	IME, haltMode, haltBug, stopMode               bool
+	IME, haltMode, haltBug                         bool
 )
 
 func Bootstrap(file []uint8) {
@@ -42,6 +44,13 @@ func Bootstrap(file []uint8) {
 	hReg = 0x01
 	lReg = 0x4D
 
+	EICounter = 0x00
+	IE = 0x00
+	IF = 0x00
+	IME = false
+	haltMode = false
+	haltBug = false
+
 	logFile, _ := os.OpenFile("text.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	log = *logFile
 
@@ -52,10 +61,15 @@ func Bootstrap(file []uint8) {
 		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
 
+	audioC = components.Audio{}
+	inputC = Input.Input{}
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
 	timerC = components.Timer{TimaClock: 256}
+
+	SerialC = components.Serial{StringBuffer: nil}
+
 }
 
 func logLine() {
@@ -75,6 +89,7 @@ func RunOneTick() {
 func mCycle() {
 	IF |= Vid.MCycle()
 	IF |= timerC.Cycle()
+	IF |= SerialC.Cycle()
 	mCycleCounter++
 }
 
@@ -82,9 +97,8 @@ func runInstructionCycle() {
 	interruptServiceRoutine()
 
 	if !haltMode {
-		logLine()
+		//logLine()
 		execNextInstr()
-		opcodeExecuteCounter++
 	}
 
 	if EICounter > 0 {
@@ -170,7 +184,7 @@ func memConWrite(val uint8, adr uint16) {
 	case adr == 0xFF00: // input
 		inputC.Write(val, adr)
 	case adr < 0xFF03: // serial port
-		return // TODO implement serial port
+		SerialC.Write(val, adr)
 	case adr < 0xFF0F: // timer control
 		timerC.Write(val, adr)
 	case adr == 0xFF0F: // IF flag
@@ -217,7 +231,7 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFF00: // input
 		return inputC.Load(adr)
 	case adr < 0xFF03: // serial port
-		return 1 // TODO implement serial port
+		return SerialC.Load(adr)
 	case adr < 0xFF0F: // timer control
 		return timerC.Load(adr)
 	case adr == 0xFF0F: // IF flag

@@ -1,4 +1,4 @@
-package components
+package Input
 
 type Input struct {
 	aBtn, bBtn, upBtn, downBtn, leftBtn, rightBtn, selectBtn, startBtn bool

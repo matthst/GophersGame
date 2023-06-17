@@ -5,7 +5,6 @@ import (
 	"github.com/matthst/gophersgame/pkg/gameboy"
 	"log"
 	"os"
-	"time"
 )
 
 const RenderScale = 3
@@ -20,10 +19,10 @@ type Game struct {
 }
 
 func (g *Game) Update() error {
-	start := time.Now()
+	//start := time.Now()
 	gameboy.RunOneTick()
-	elapsed := time.Since(start)
-	log.Printf("Tick took %s", elapsed)
+	//elapsed := time.Since(start)
+	//log.Printf("Tick took %s", elapsed)
 	return nil
 }
 
@@ -39,7 +38,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 }
 
 func main() {
-	cartridge, _ := os.ReadFile("testing/blargg/instr_timing/instr_timing.gb")
+	cartridge, _ := os.ReadFile("test_roms/blargg/cpu_instrs/individual/02-interrupts.gb")
 	gameboy.Bootstrap(cartridge)
 
 	myOp := &ebiten.DrawImageOptions{}
