@@ -44,7 +44,9 @@ func GetDmgVideo() Video {
 		obPalette1:  monochromePalette,
 		RenderImage: ebiten.NewImage(160, 144),
 	}
+	ly = 91
 	vid.WriteToIORegisters(0x91, 0xFF40)
+	vid.WriteToIORegisters(0x81, 0xFF41)
 	vid.WriteToIORegisters(0xFC, 0xFF47)
 	return vid
 }
@@ -82,7 +84,7 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 	case 0xFF43:
 		return scx
 	case 0xFF44:
-		return 0x90 //FIXME reinstate return ly
+		return ly
 	case 0xFF45:
 		return lyc
 	case 0xFF46:
@@ -229,6 +231,7 @@ func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color pale
 }
 
 func (v *Video) drawScanLine() {
+
 	//setup for BG and Win
 	ySCYOffset := uint16(ly + scy)
 	bgMapBaseAddress := (ySCYOffset / 8) * 32 //background map base address with right row selected

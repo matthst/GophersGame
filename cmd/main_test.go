@@ -43,9 +43,8 @@ func TestBlargg(t *testing.T) {
 				t.FailNow()
 			}
 
-			gameboy.Bootstrap(file)
 			sBuilder := strings.Builder{}
-			gameboy.SerialC.StringBuffer = &sBuilder
+			gameboy.Bootstrap(file, &sBuilder)
 
 			for tickCount := int32(0); ; tickCount++ {
 				gameboy.RunOneTick()

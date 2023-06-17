@@ -10,7 +10,7 @@ type Serial struct {
 	serialTransferBuffer, serialTransferControl, incomingValue, outgoingValue, bitCounter uint8
 	transferActive, ClockSpeed, ShiftClock                                                bool
 
-	StringBuffer *strings.Builder
+	StringBuilder *strings.Builder
 }
 
 var (
@@ -47,8 +47,8 @@ func (s *Serial) Cycle() uint8 {
 				s.bitCounter = 0
 				s.transferActive = false
 				s.serialTransferControl &= 0b1
-				if s.StringBuffer != nil {
-					s.StringBuffer.WriteByte(s.outgoingValue)
+				if s.StringBuilder != nil {
+					s.StringBuilder.WriteByte(s.outgoingValue)
 				}
 				return 0b1000
 			}

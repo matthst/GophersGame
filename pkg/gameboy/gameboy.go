@@ -6,6 +6,7 @@ import (
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
 	"os"
+	"strings"
 )
 
 var (
@@ -13,7 +14,6 @@ var (
 	wramC   components.WRAM
 	hramC   components.HRAM
 	timerC  components.Timer
-	inputC  Input.Input
 	SerialC components.Serial
 	cart    components.Cartridge
 	Vid     video.Video
@@ -29,7 +29,7 @@ var (
 	IME, haltMode, haltBug                         bool
 )
 
-func Bootstrap(file []uint8) {
+func Bootstrap(file []uint8, serialBuilder *strings.Builder) {
 	mCycleCounter = 0
 	mCycleOffset = 0
 
@@ -45,11 +45,8 @@ func Bootstrap(file []uint8) {
 	lReg = 0x4D
 
 	EICounter = 0x00
-	IE = 0x00
-	IF = 0x00
-	IME = false
-	haltMode = false
-	haltBug = false
+	IE, IF = 0x00, 0xE1
+	IME, haltMode, haltBug = false, false, false
 
 	logFile, _ := os.OpenFile("text.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	log = *logFile
@@ -62,13 +59,12 @@ func Bootstrap(file []uint8) {
 	}
 
 	audioC = components.Audio{}
-	inputC = Input.Input{}
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
 	timerC = components.Timer{TimaClock: 256}
-
-	SerialC = components.Serial{StringBuffer: nil}
+	timerC.Write(0xF8, 0xFF07)
+	SerialC = components.Serial{StringBuilder: serialBuilder}
 
 }
 
@@ -78,6 +74,7 @@ func logLine() {
 }
 
 func RunOneTick() {
+	Input.RunTick()
 	mCycleCounter = mCycleOffset
 	for mCycleCounter < 17556 {
 		runInstructionCycle()
@@ -90,6 +87,7 @@ func mCycle() {
 	IF |= Vid.MCycle()
 	IF |= timerC.Cycle()
 	IF |= SerialC.Cycle()
+	IF |= Input.Cycle()
 	mCycleCounter++
 }
 
@@ -99,6 +97,8 @@ func runInstructionCycle() {
 	if !haltMode {
 		//logLine()
 		execNextInstr()
+	} else {
+		mCycle()
 	}
 
 	if EICounter > 0 {
@@ -182,7 +182,7 @@ func memConWrite(val uint8, adr uint16) {
 
 	// I/O Registers
 	case adr == 0xFF00: // input
-		inputC.Write(val, adr)
+		Input.Write(val)
 	case adr < 0xFF03: // serial port
 		SerialC.Write(val, adr)
 	case adr < 0xFF0F: // timer control
@@ -229,7 +229,7 @@ func memConLoad(adr uint16) uint8 {
 
 	// I/O Registers
 	case adr == 0xFF00: // input
-		return inputC.Load(adr)
+		return Input.Load()
 	case adr < 0xFF03: // serial port
 		return SerialC.Load(adr)
 	case adr < 0xFF0F: // timer control

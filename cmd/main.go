@@ -21,6 +21,7 @@ type Game struct {
 func (g *Game) Update() error {
 	//start := time.Now()
 	gameboy.RunOneTick()
+
 	//elapsed := time.Since(start)
 	//log.Printf("Tick took %s", elapsed)
 	return nil
@@ -30,16 +31,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(gameboy.Vid.RenderImage, &g.op)
 }
 
-func updateTile(eTile *ebiten.Image, data [16]uint8) {
-}
-
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return (160 + Border) * RenderScale, (144 + Border) * RenderScale
 }
 
 func main() {
-	cartridge, _ := os.ReadFile("test_roms/blargg/cpu_instrs/individual/02-interrupts.gb")
-	gameboy.Bootstrap(cartridge)
+	args := os.Args[1:]
+	cartridge, _ := os.ReadFile(args[0])
+	gameboy.Bootstrap(cartridge, nil)
 
 	myOp := &ebiten.DrawImageOptions{}
 	myOp.GeoM.Scale(RenderScale, RenderScale)
