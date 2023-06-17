@@ -55,7 +55,7 @@ func Bootstrap(file []uint8) {
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
-	timerC = components.Timer{}
+	timerC = components.Timer{TimaClock: 256}
 }
 
 func logLine() {
@@ -76,14 +76,13 @@ func mCycle() {
 	IF |= Vid.MCycle()
 	IF |= timerC.Cycle()
 	mCycleCounter++
-
 }
 
 func runInstructionCycle() {
 	interruptServiceRoutine()
 
 	if !haltMode {
-		// logLine()
+		logLine()
 		execNextInstr()
 		opcodeExecuteCounter++
 	}
@@ -236,6 +235,6 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFFFF:
 		return IE
 	}
+	fmt.Printf("CPU tried to write to memory address '%X', but no implementation exists. \n", adr)
 	return 0x00
-	//panic(fmt.Sprintf("CPU tried to write to memory address '%X', but no implementation exists.", adr))
 }

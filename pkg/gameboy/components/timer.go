@@ -2,8 +2,8 @@ package components
 
 type Timer struct {
 	dividerRegister, timerCounter, timerModulo, timerControl uint8
-	divIndex, timaIndex, timaClock                           int
-	timerEnable                                              bool
+	divIndex, timaIndex, TimaClock                           int
+	timerEnable, timerOverflow                               bool
 }
 
 var (
@@ -37,6 +37,8 @@ func (t *Timer) Write(val uint8, adr uint16) {
 }
 
 func (t *Timer) Cycle() uint8 {
+	interruptResult := uint8(0)
+
 	t.divIndex++
 	t.timaIndex++
 	if t.divIndex == 64 {
@@ -44,19 +46,24 @@ func (t *Timer) Cycle() uint8 {
 		t.dividerRegister++
 	}
 
-	if t.timerEnable && t.timaIndex == t.timaClock {
+	if t.timerOverflow {
+		t.timerOverflow = false
+		t.timerCounter = t.timerModulo
+		interruptResult = 0b100
+	}
+
+	if t.timerEnable && t.timaIndex > t.TimaClock {
 		t.timaIndex = 0
 		t.timerCounter++
 
 		if t.timerCounter == 0 { //TIMA overflow
-			t.timerCounter = t.timerModulo
-			return 0b100
+			t.timerOverflow = true
 		}
 	}
-	return 0x00
+	return interruptResult
 }
 
 func (t *Timer) updateTAC() {
 	t.timerEnable = t.timerControl&0b100 == 1
-	t.timaClock = clockSelect[t.timerControl&0b11]
+	t.TimaClock = clockSelect[t.timerControl&0b11]
 }

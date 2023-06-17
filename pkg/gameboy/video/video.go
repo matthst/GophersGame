@@ -82,7 +82,7 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 	case 0xFF43:
 		return scx
 	case 0xFF44:
-		return ly
+		return 0x90 //FIXME reinstate return ly
 	case 0xFF45:
 		return lyc
 	case 0xFF46:
