@@ -7,7 +7,6 @@ import (
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"github.com/matthst/gophersgame/pkg/gameboy/timer"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
-	"os"
 	"strings"
 )
 
@@ -19,7 +18,7 @@ var (
 	cart    Cartridge.Cartridge
 	Vid     video.Video
 
-	log os.File
+	oamSourceOffset, oamByteIndex uint16
 
 	mCycleCounter, mCycleOffset int
 
@@ -27,7 +26,7 @@ var (
 	PC                                             uint16
 	aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg uint8
 	EICounter, IE, IF                              uint8
-	IME, haltMode, haltBug                         bool
+	IME, haltMode, haltBug, oamTransferActive      bool
 )
 
 func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
@@ -49,14 +48,19 @@ func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 	IE, IF = 0x00, 0xE1
 	IME, haltMode, haltBug = false, false, false
 
-	logFile, _ := os.OpenFile("text.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	log = *logFile
-
 	Timer.DividerClk = 0xABCC
 
 	switch file[0x0147] {
 	case 0x00, 0x01:
-		cart = Cartridge.CreateMBC1(file, romPath)
+		cart = Cartridge.CreateMBC1(file, romPath, false, false)
+	case 0x02:
+		cart = Cartridge.CreateMBC1(file, romPath, true, false)
+	case 0x03:
+		cart = Cartridge.CreateMBC1(file, romPath, true, true)
+	case 0x05:
+		cart = Cartridge.CreateMBC2(file, romPath, false)
+	case 0x06:
+		cart = Cartridge.CreateMBC2(file, romPath, true)
 	default:
 		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
@@ -67,11 +71,6 @@ func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 	hramC = components.HRAM{}
 	SerialC = components.Serial{StringBuilder: serialBuilder}
 
-}
-
-func logLine() {
-	s := fmt.Sprintf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n", aReg, fReg, bReg, cReg, dReg, eReg, hReg, lReg, SP, PC, debugLoad(PC), debugLoad(PC+1), debugLoad(PC+2), debugLoad(PC+3))
-	_, _ = log.WriteString(s)
 }
 
 func RunOneTick() {
@@ -89,6 +88,7 @@ func mCycle() {
 	IF |= Timer.Cycle()
 	IF |= SerialC.Cycle()
 	IF |= Input.Cycle()
+	oamTransferCycle()
 	mCycleCounter++
 }
 
@@ -96,7 +96,6 @@ func runInstructionCycle() {
 	interruptServiceRoutine()
 
 	if !haltMode {
-		//logLine()
 		execNextInstr()
 	} else {
 		mCycle()
@@ -155,7 +154,7 @@ func interruptServiceRoutine() {
 }
 
 func getImmediate() uint8 {
-	val := memConLoad(PC)
+	val := loadAndCycle(PC)
 	if !haltBug {
 		PC++
 	}
@@ -163,8 +162,39 @@ func getImmediate() uint8 {
 	return val
 }
 
-// memConWrite to the memory controller
-func memConWrite(val uint8, adr uint16) {
+// writeAndCycle to the memory controller
+func writeAndCycle(val uint8, adr uint16) {
+	defer mCycle()
+	writeToMemoryBus(val, adr)
+}
+
+// loadAndCycle from the memory controller
+func loadAndCycle(adr uint16) uint8 {
+	defer mCycle()
+	return loadFromMemoryBus(adr)
+}
+
+func oamTransferCycle() {
+	if oamTransferActive {
+		val := loadFromMemoryBus(0xFE00 + oamByteIndex)
+		writeToMemoryBus(val, oamSourceOffset+oamByteIndex)
+		oamByteIndex++
+		if oamByteIndex == 160 {
+			oamTransferActive = false
+			oamByteIndex = 0
+		}
+	}
+}
+
+func startOAMTransfer(val uint8) {
+	if !oamTransferActive {
+		oamTransferActive = true
+		oamSourceOffset = uint16(val) << 8
+		oamByteIndex = 0
+	}
+}
+
+func writeToMemoryBus(val uint8, adr uint16) {
 	switch {
 	case adr < 0x8000: // cart ROM
 		cart.Write(val, adr)
@@ -179,15 +209,17 @@ func memConWrite(val uint8, adr uint16) {
 	case adr < 0xFEA0: // OAM
 		Vid.WriteToOAM(val, adr)
 	case adr < 0xFF00: //OAM corruption bug
-		return // TODO implement OAM corruption bug
+		return
 
 	// I/O Registers
 	case adr == 0xFF00: // Input
 		Input.Write(val)
+	case adr == 0xFF46:
+		startOAMTransfer(val)
+	case adr == 0xFF0F: // IF
+		IF = (val & 0x1F) | 0b1110_0000
 	case adr == 0xFFFF: // IE
 		IE = val
-	case adr == 0xFF0F: // IF
-		IF = val
 	case adr == 0xFF4D: // KEY1
 		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF03: // serial port
@@ -203,15 +235,11 @@ func memConWrite(val uint8, adr uint16) {
 	case adr >= 0xFF80:
 		hramC.Write(val, adr)
 	default:
-		//panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
+		// panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
 	}
-	mCycle()
 }
 
-// memConLoad from the memory controller
-func memConLoad(adr uint16) uint8 {
-	defer mCycle()
-
+func loadFromMemoryBus(adr uint16) uint8 {
 	switch {
 
 	case adr < 0x8000: // cartridge ROM
@@ -233,7 +261,7 @@ func memConLoad(adr uint16) uint8 {
 	case adr == 0xFF00: // Input
 		return Input.Load()
 	case adr == 0xFF0F: // IF
-		return IF
+		return IF | 0b1110_0000
 	case adr == 0xFFFF: // IE
 		return IE
 	case adr == 0xFF70: // KEY1
@@ -252,6 +280,6 @@ func memConLoad(adr uint16) uint8 {
 		return hramC.Load(adr)
 
 	}
-	fmt.Printf("CPU tried to write to memory address '%X', but no implementation exists. \n", adr)
+	// fmt.Printf("CPU tried to write to memory address '%X', but no implementation exists. \n", adr)
 	return 0x00
 }

@@ -21,7 +21,7 @@ func execCBInstr() {
 	case 0x5, 0xD:
 		reg = &lReg
 	case 0x6, 0xE:
-		*reg = memConLoad(getHL())
+		*reg = loadAndCycle(getHL())
 	case 0x7, 0xF:
 		reg = &aReg
 	}
@@ -52,7 +52,7 @@ func execCBInstr() {
 	}
 
 	if i := opcode & 0xF; (opcode < 0x40 || opcode > 0x7F) && (i == 0x6 || i == 0xE) {
-		memConWrite(*reg, getHL())
+		writeAndCycle(*reg, getHL())
 	}
 }
 

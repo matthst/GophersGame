@@ -10,41 +10,45 @@ type Video struct {
 
 	// render section
 
-	RenderImage *ebiten.Image
-
 	// TODO [GBC] Hi-Color Mode
 	// TODO OAM DMA TRANSFER
 
 	// data section
 	tileData [0x1800]uint8
 	tileMaps [0x0800]uint8
-	oam      [0x1000]uint8
+	oam      [160]uint8
 
 	bgPalette, obPalette0, obPalette1 [4]color.Color
 	bgp, obp0, obp1                   uint8
 }
 
 var (
-	monochromePalette = [4]color.Color{color.Gray{0xFF}, color.Gray{0xF0}, color.Gray{0x0F}, color.Gray{0x00}}
+	monochromePalette = [4]color.Color{
+		color.RGBA{R: 0xC7, G: 0xC7, B: 0xC7},
+		color.RGBA{R: 0xA0, G: 0xA0, B: 0x88},
+		color.RGBA{R: 0x66, G: 0x66, B: 0x4d},
+		color.RGBA{R: 0x27, G: 0x27, B: 0x15}}
 
-	scanLineCycleCount int
+	RenderImage *ebiten.Image
+
+	scanLineCycle int
 
 	scx, scy, wx, wy, ly, lyc, lcdc, stat, statMode uint8
 
-	statBlock, lycEqualsLY bool
+	statBlock, lycEqualsLY, oamTransferEnabled bool
 
 	// LCDC bool stuff
-	ppuEnable, winTileMapArea, winEnable, bgWinAddressingMode, bgTileMapArea, objSize, objEnable, bgWinEnable bool
+	lcdEnable, winTileMapArea, winEnable, bgWinAddressingMode, bgTileMapArea, objSize, objEnable, bgWinEnable bool
 )
 
 func GetDmgVideo() Video {
 	vid := Video{
-		bgPalette:   monochromePalette,
-		obPalette0:  monochromePalette,
-		obPalette1:  monochromePalette,
-		RenderImage: ebiten.NewImage(160, 144),
+		bgPalette:  monochromePalette,
+		obPalette0: monochromePalette,
+		obPalette1: monochromePalette,
 	}
 	ly = 91
+	RenderImage = ebiten.NewImage(160, 144)
 	vid.WriteToIORegisters(0x91, 0xFF40)
 	vid.WriteToIORegisters(0x81, 0xFF41)
 	vid.WriteToIORegisters(0xFC, 0xFF47)
@@ -87,9 +91,6 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 		return ly
 	case 0xFF45:
 		return lyc
-	case 0xFF46:
-		// TODO OAM COPY handling
-		panic("OAM Copy not implemented")
 	case 0xFF47:
 		return v.bgp //TODO [CGB] palette handling (don't forget no access during Mode 3
 	case 0xFF48:
@@ -111,7 +112,7 @@ func (v *Video) LoadFromIORegisters(adr uint16) uint8 {
 }
 
 func (v *Video) WriteToVRAM(val uint8, adr uint16) {
-	if true || statMode < 3 { // FIXME why is this BROKEN
+	if statMode < 3 {
 		if adr < 0x9800 {
 			v.tileData[adr-0x8000] = val
 		} else {
@@ -121,7 +122,7 @@ func (v *Video) WriteToVRAM(val uint8, adr uint16) {
 }
 
 func (v *Video) WriteToOAM(val uint8, adr uint16) {
-	if statMode < 2 { // FIXME check if this is BROKEN TOO?
+	if statMode < 2 {
 		v.oam[adr-0xFE00] = val
 	}
 }
@@ -139,9 +140,6 @@ func (v *Video) WriteToIORegisters(val uint8, adr uint16) {
 		scx = val
 	case 0xFF45:
 		lyc = val
-	case 0xFF46:
-		// TODO OAM COPY handling
-		panic("OAM Copy not implemented")
 	case 0xFF47:
 		v.bgp = val //TODO [CGB] palette handling
 		updatePalette(val, &v.bgPalette)
@@ -163,10 +161,14 @@ func (v *Video) WriteToIORegisters(val uint8, adr uint16) {
 
 // MCycle executes an mCycle for the video controller and returns interrupts if any occur
 func (v *Video) MCycle() uint8 {
+	if !lcdEnable {
+		return 0
+	}
+
 	statResult := uint8(0)
-	scanLineCycleCount++
-	if scanLineCycleCount == 114 {
-		scanLineCycleCount = 0
+	scanLineCycle++
+	if scanLineCycle == 114 {
+		scanLineCycle = 0
 		ly++
 
 		if ly == 144 { // MODE 1, VBLANK
@@ -179,12 +181,12 @@ func (v *Video) MCycle() uint8 {
 
 	if ly < 144 {
 		switch {
-		case scanLineCycleCount == 0: // MODE 2, Search
+		case scanLineCycle == 0: // MODE 2, Search
 			statMode = 2
-		case scanLineCycleCount == 20: // MODE 3, transfer to LCD controller
+		case scanLineCycle == 20: // MODE 3, transfer to LCD controller
 			statMode = 3
 			v.drawScanLine()
-		case scanLineCycleCount == 63: // MODE 0, HBLANK
+		case scanLineCycle == 63: // MODE 0, HBLANK
 			statMode = 0
 		}
 	}
@@ -213,30 +215,21 @@ func (v *Video) MCycle() uint8 {
 	return statResult
 }
 
-func updateLCDCFlags() { //TODO add LCDC turning off / on
-	ppuEnable = lcdc&0b1000_0000 != 0
-	winTileMapArea = lcdc&0b0100_0000 != 0
-	winEnable = lcdc&0b0010_0000 != 0
-	bgWinAddressingMode = lcdc&0b0001_0000 != 0
-	bgTileMapArea = lcdc&0b0000_1000 != 0
-	objSize = lcdc&0b0000_0100 != 0
-	objEnable = lcdc&0b0000_0010 != 0
-	bgWinEnable = lcdc&0b0000_0001 != 0
-}
-
-func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color palette handling
-	for i := 0; i < 4; i++ {
-		palette[i] = monochromePalette[((val >> (i * 2)) & 0b11)]
-	}
-}
-
 func (v *Video) drawScanLine() {
+	if !lcdEnable {
+		return
+	}
 
 	//setup for BG and Win
-	ySCYOffset := uint16(ly + scy)
+	ySCYOffset, yWYOffset := uint16(ly+scy), uint16(ly-wy)
 	bgMapBaseAddress := (ySCYOffset / 8) * 32 //background map base address with right row selected
+	winMapBaseAddress := (yWYOffset / 8) * 32 //window map base address with right row selected
+	windowVisible := winEnable && wy <= ly
 	if bgTileMapArea {
 		bgMapBaseAddress += 0x0400 //switch bg map to second map if needed
+	}
+	if winTileMapArea {
+		winMapBaseAddress += 0x0400 //switch window map to second map if needed
 	}
 
 	// Setup for objects
@@ -282,26 +275,51 @@ DrawLoop:
 
 		// BG and Window enable TODO [CGB] bg and window priority
 		if !bgWinEnable {
-			v.RenderImage.Set(int(x), int(ly), color.White)
+			RenderImage.Set(int(x), int(ly), color.White)
 			continue
 		}
 
 		//Window
-		if winEnable && wy <= ly && wx+7 <= x {
-			// TODO get pixel from window
+		if windowVisible && wx+7 <= x {
+			xWXOffset := uint16(x - wx + 7)
+			colorIndex := v.getPixelFromMap(winMapBaseAddress, xWXOffset, yWYOffset)
+			RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
+			continue
 		}
 
 		//BG
 		xSCXOffset := uint16(x + scx)
-		tileIndexAddress := bgMapBaseAddress + xSCXOffset/8
-		baseTileIndex := uint16(v.tileMaps[tileIndexAddress])
-		tileByteRowAddr := baseTileIndex*16 + (ySCYOffset%8)*2
-		if !bgWinAddressingMode && baseTileIndex < 128 {
-			tileByteRowAddr += 0x1000
-		}
-		xOffset := 7 - xSCXOffset%8
-		colorIndex := ((v.tileData[tileByteRowAddr] >> xOffset) & 1) + (((v.tileData[tileByteRowAddr+1] >> xOffset) << 1) & 2)
-		v.RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
+		colorIndex := v.getPixelFromMap(bgMapBaseAddress, xSCXOffset, ySCYOffset)
+		RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
 	}
 
+}
+
+func (v *Video) getPixelFromMap(bgMapBaseAddress uint16, xMapOffset uint16, yMapOffset uint16) uint8 {
+	tileIndexAddress := bgMapBaseAddress + xMapOffset/8
+	baseTileIndex := uint16(v.tileMaps[tileIndexAddress])
+	tileByteRowAddr := baseTileIndex*16 + (yMapOffset%8)*2
+	if !bgWinAddressingMode && baseTileIndex < 128 {
+		tileByteRowAddr += 0x1000
+	}
+	xOffset := 7 - xMapOffset%8
+	colorIndex := ((v.tileData[tileByteRowAddr] >> xOffset) & 1) + (((v.tileData[tileByteRowAddr+1] >> xOffset) << 1) & 2)
+	return colorIndex
+}
+
+func updateLCDCFlags() { //TODO add LCDC turning off / on
+	lcdEnable = lcdc&0b1000_0000 != 0
+	winTileMapArea = lcdc&0b0100_0000 != 0
+	winEnable = lcdc&0b0010_0000 != 0
+	bgWinAddressingMode = lcdc&0b0001_0000 != 0
+	bgTileMapArea = lcdc&0b0000_1000 != 0
+	objSize = lcdc&0b0000_0100 != 0
+	objEnable = lcdc&0b0000_0010 != 0
+	bgWinEnable = lcdc&0b0000_0001 != 0
+}
+
+func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color palette handling
+	for i := 0; i < 4; i++ {
+		palette[i] = monochromePalette[((val >> (i * 2)) & 0b11)]
+	}
 }

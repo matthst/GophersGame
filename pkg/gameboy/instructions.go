@@ -509,7 +509,7 @@ func stop() {
 }
 
 func halt() {
-	if IE&IF&0x1F != 0 {
+	if !IME && IE&IF&0x1F != 0 {
 		haltBug = true
 	} else {
 		haltMode = true
@@ -556,16 +556,16 @@ func jumpHL() {
 func retCond(cond bool) {
 	mCycle()
 	if cond {
-		P := memConLoad(getAndIncSP())
-		S := memConLoad(getAndIncSP())
+		P := loadAndCycle(getAndIncSP())
+		S := loadAndCycle(getAndIncSP())
 		PC = getWord(S, P)
 		mCycle()
 	}
 }
 
 func ret() {
-	C := memConLoad(getAndIncSP())
-	P := memConLoad(getAndIncSP())
+	C := loadAndCycle(getAndIncSP())
+	P := loadAndCycle(getAndIncSP())
 	PC = getWord(P, C)
 	mCycle()
 }
@@ -582,9 +582,9 @@ func call(cond bool) {
 		P, C := getBytes(PC)
 		mCycle()
 		SP--
-		memConWrite(P, SP)
+		writeAndCycle(P, SP)
 		SP--
-		memConWrite(C, SP)
+		writeAndCycle(C, SP)
 		PC = getWord(hi, lo)
 	}
 }
@@ -593,9 +593,9 @@ func rst(adr uint16) {
 	P, C := getBytes(PC)
 	mCycle()
 	SP--
-	memConWrite(P, SP)
+	writeAndCycle(P, SP)
 	SP--
-	memConWrite(C, SP)
+	writeAndCycle(C, SP)
 	PC = adr
 }
 
@@ -630,31 +630,31 @@ func loadI16SP() {
 
 // loadR8 load an 8-bit val from memory into the given register
 func loadR8(reg *uint8, adr uint16) {
-	*reg = memConLoad(adr)
+	*reg = loadAndCycle(adr)
 }
 
 // loadMAI16 load an 8-bit val into aReg from the memory address specified by the 16-bit immediate
 func loadAMI16() {
 	lo := getImmediate()
 	hi := getImmediate()
-	aReg = memConLoad(getWord(hi, lo))
+	aReg = loadAndCycle(getWord(hi, lo))
 }
 
 // loadAI8 load the content of an address in the block 0xFF00 - 0xFFFF given by an i8 into register A
 func loadAI8() {
 	adr := uint16(0xFF00) | uint16(getImmediate())
-	aReg = memConLoad(adr)
+	aReg = loadAndCycle(adr)
 }
 
 // loadAC load the content of an address in the block 0xFF00 - 0xFFFF given by register C into register A
 func loadAC() {
 	adr := uint16(0xFF00) | uint16(cReg)
-	aReg = memConLoad(adr)
+	aReg = loadAndCycle(adr)
 }
 
 // storeR8 store the content of register at regVal in the address specified by RegAdr.
 func storeR8(val uint8, adr uint16) {
-	memConWrite(val, adr)
+	writeAndCycle(val, adr)
 }
 
 // storeSPI16 store the stack pointer in the memory address provided by the 16-bit immediate
@@ -662,51 +662,51 @@ func storeSPI16() {
 	adr := uint16(getImmediate())
 	adr += uint16(getImmediate()) << 8
 	s, p := getBytes(SP)
-	memConWrite(p, adr)
-	memConWrite(s, adr+1)
+	writeAndCycle(p, adr)
+	writeAndCycle(s, adr+1)
 }
 
 // storeI8 store the immediate 8-bit value into the memory address specified by HL
 func storeI8() {
-	memConWrite(getImmediate(), getHL())
+	writeAndCycle(getImmediate(), getHL())
 }
 
 // storeAI8 store the content of register A in an address in the block 0xFF00 - 0xFFFF given by an i8
 func storeAI8() {
 	adr := uint16(0xFF00) | uint16(getImmediate())
-	memConWrite(aReg, adr)
+	writeAndCycle(aReg, adr)
 }
 
 // storeAMI16 store an 8-bit val from aReg into the memory address specified by the 16-bit immediate
 func storeAMI16() {
 	lo := getImmediate()
 	hi := getImmediate()
-	memConWrite(aReg, getWord(hi, lo))
+	writeAndCycle(aReg, getWord(hi, lo))
 }
 
 // storeAC store the content of register A in an address in the block 0xFF00 - 0xFFFF given by A
 func storeAC() {
-	memConWrite(aReg, uint16(0xFF00)|uint16(cReg))
+	writeAndCycle(aReg, uint16(0xFF00)|uint16(cReg))
 }
 
 func push(hi, lo uint8) {
 	mCycle()
 	SP--
-	memConWrite(hi, SP)
+	writeAndCycle(hi, SP)
 	SP--
-	memConWrite(lo, SP)
+	writeAndCycle(lo, SP)
 }
 
 // pop load a 16bit value from memory and increment the stack pointer during the load (twice in total)
 func pop(hi, lo *uint8) {
-	*lo = memConLoad(getAndIncSP())
-	*hi = memConLoad(getAndIncSP())
+	*lo = loadAndCycle(getAndIncSP())
+	*hi = loadAndCycle(getAndIncSP())
 }
 
 // pop load a 16bit value from memory into the register pair AF
 func popAF() {
-	fReg = memConLoad(getAndIncSP()) & 0xF0
-	aReg = memConLoad(getAndIncSP())
+	fReg = loadAndCycle(getAndIncSP()) & 0xF0
+	aReg = loadAndCycle(getAndIncSP())
 }
 
 // incR16 increments a combine 16-bit register.
@@ -731,12 +731,12 @@ func incR8(reg *uint8) {
 
 // incM8 increment the 8 bit value at the specified memory address
 func incM8(adr uint16) {
-	val := memConLoad(adr)
+	val := loadAndCycle(adr)
 	setNFlag(false)
 	setHFlag(halfCarryAddCheck8Bit(val, 1))
 	val++
 	setZFlag(val == 0)
-	memConWrite(val, adr)
+	writeAndCycle(val, adr)
 }
 
 // decR16 increments a combine 16-bit register.
@@ -761,12 +761,12 @@ func decR8(reg *uint8) {
 
 // decM8 decrement the 8 bit value at the specified memory address
 func decM8(adr uint16) {
-	val := memConLoad(adr)
+	val := loadAndCycle(adr)
 	setNFlag(true)
 	setHFlag(halfCarrySubCheck8Bit(val, 1))
 	val--
 	setZFlag(val == 0)
-	memConWrite(val, adr)
+	writeAndCycle(val, adr)
 }
 
 // addR16R16 add the contents of one 16-bit register pair to the register HL
@@ -861,7 +861,7 @@ func aluI8(aluFunc aluR8Def) {
 
 // aluM8 executes an 8-bit alu function with the value from the given memory address
 func aluM8(aluFunc aluR8Def) {
-	val := memConLoad(getHL())
+	val := loadAndCycle(getHL())
 	aluFunc(val)
 }
 

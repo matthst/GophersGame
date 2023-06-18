@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/matthst/gophersgame/pkg/gameboy"
+	"github.com/matthst/gophersgame/pkg/gameboy/video"
 	"log"
 	"os"
 	"time"
@@ -28,7 +29,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.DrawImage(gameboy.Vid.RenderImage, &g.op)
+	screen.DrawImage(video.RenderImage, &g.op)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -38,6 +39,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 func main() {
 	args := os.Args[1:]
 	romPath := args[0]
+	//romPath := "test_roms/blargg/cpu_instrs/cpu_instrs.gb"
 	cartridge, _ := os.ReadFile(romPath)
 	gameboy.Bootstrap(cartridge, romPath, nil)
 

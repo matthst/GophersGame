@@ -9,7 +9,6 @@ import (
 type Cartridge interface {
 	Write(val uint8, adr uint16)
 	Load(adr uint16) uint8
-	GetCartridgeType() string
 }
 
 // getROMSize returns the number of ROM banks based on the header byte 0x0148
@@ -21,13 +20,13 @@ func getROMSize(val uint8) uint16 {
 func getRAMSize(val uint8) uint16 {
 	switch val {
 	case 0x02:
-		return 8
+		return 1
 	case 0x03:
-		return 32
+		return 4
 	case 0x04:
-		return 128
+		return 16
 	case 0x05:
-		return 64
+		return 8
 	default:
 		return 0
 	}
