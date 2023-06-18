@@ -176,8 +176,8 @@ func loadAndCycle(adr uint16) uint8 {
 
 func oamTransferCycle() {
 	if oamTransferActive {
-		val := loadFromMemoryBus(0xFE00 + oamByteIndex)
-		writeToMemoryBus(val, oamSourceOffset+oamByteIndex)
+		val := loadFromMemoryBus(oamSourceOffset + oamByteIndex)
+		writeToMemoryBus(val, 0xFE00+oamByteIndex)
 		oamByteIndex++
 		if oamByteIndex == 160 {
 			oamTransferActive = false

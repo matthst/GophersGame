@@ -11,7 +11,6 @@ type Video struct {
 	// render section
 
 	// TODO [GBC] Hi-Color Mode
-	// TODO OAM DMA TRANSFER
 
 	// data section
 	tileData [0x1800]uint8
@@ -35,7 +34,7 @@ var (
 
 	scx, scy, wx, wy, ly, lyc, lcdc, stat, statMode uint8
 
-	statBlock, lycEqualsLY, oamTransferEnabled bool
+	statBlock, lycEqualsLY bool
 
 	// LCDC bool stuff
 	lcdEnable, winTileMapArea, winEnable, bgWinAddressingMode, bgTileMapArea, objSize, objEnable, bgWinEnable bool
@@ -235,40 +234,64 @@ func (v *Video) drawScanLine() {
 	// Setup for objects
 	spriteHeight := uint8(8)
 	objIds := make([]int, 0)
-	if false && objEnable { // TODO enable objects later
+	if objEnable {
 		if objSize {
 			spriteHeight += 8
 		}
 
 		// grab objects for drawing, up to 10
 		for oamIndex, selectIndex := 0, 0; oamIndex < 160 && selectIndex < 10; oamIndex += 4 {
-			if v.oam[oamIndex]+16 <= ly && v.oam[oamIndex]+16+spriteHeight >= ly {
+			if v.oam[oamIndex] <= ly+16 && v.oam[oamIndex]+spriteHeight >= ly+16 {
 				objIds = append(objIds, oamIndex)
 				selectIndex++
 			}
 		}
 
 		//sort the chosen objects by their x coordinate to make iterating over them faster
-		sort.SliceIsSorted(objIds, func(a, b int) bool {
+		sort.Slice(objIds, func(a, b int) bool {
 			return v.oam[a+1] < v.oam[b+1]
 		})
 	}
 
 DrawLoop:
 	for x := uint8(0); x < 160; x++ {
-		if false && objEnable { //OBJ // TODO enable objects later
+		if objEnable { //OBJ
 			for _, objId := range objIds {
-				if v.oam[objId+1]+16 < x { // obj is before x
+				if v.oam[objId+1]+8 < x+8 { // obj is before x
 					continue
 				}
-				if v.oam[objId+1]+8 > x { // obj is after x
+				if v.oam[objId+1] > x+8 { // obj is after x
 					break
 				}
-				// TODO GET Pixel
-				pixel := 0      //placeholder
-				if pixel != 0 { // TODO add condition that checks if obj is behind background
-					// DRAW
-					continue DrawLoop // go to next pixel
+
+				tileIndex := uint16(v.oam[objId+2])
+
+				bgOverObj, yFlip, xFlip, palette := getObjFlags(v.oam[objId+3])
+				yOffset := uint16(ly + 16 - v.oam[objId])
+				xOffset := x + 8 - v.oam[objId+1]
+				if yFlip {
+					yOffset = uint16(spriteHeight) - yOffset
+				}
+				if xFlip {
+					xOffset = 8 - xOffset
+				}
+				if objSize {
+					tileIndex &= 0xFE
+				}
+
+				tileByteRowAddr := tileIndex*16 + yOffset*2
+				colorIndex := ((v.tileData[tileByteRowAddr] >> xOffset) & 1) + (((v.tileData[tileByteRowAddr+1] >> xOffset) << 1) & 2)
+				if colorIndex != 0 {
+					var paletteRef *[4]color.Color
+					if palette {
+						paletteRef = &v.obPalette1
+					} else {
+						paletteRef = &v.obPalette0
+					}
+					RenderImage.Set(int(x), int(ly), paletteRef[colorIndex])
+					if !bgOverObj {
+						continue DrawLoop // go to next pixel
+					}
 				}
 			}
 		}
@@ -292,7 +315,6 @@ DrawLoop:
 		colorIndex := v.getPixelFromMap(bgMapBaseAddress, xSCXOffset, ySCYOffset)
 		RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
 	}
-
 }
 
 func (v *Video) getPixelFromMap(bgMapBaseAddress uint16, xMapOffset uint16, yMapOffset uint16) uint8 {
@@ -307,7 +329,15 @@ func (v *Video) getPixelFromMap(bgMapBaseAddress uint16, xMapOffset uint16, yMap
 	return colorIndex
 }
 
-func updateLCDCFlags() { //TODO add LCDC turning off / on
+func getObjFlags(val uint8) (bool, bool, bool, bool) {
+	bgOverObj := val&0b1000_0000 != 0
+	yFlip := val&0b0100_0000 != 0
+	xFlip := val&0b0010_0000 != 0
+	palette := val&0b0001_0000 != 0
+	return bgOverObj, yFlip, xFlip, palette
+}
+
+func updateLCDCFlags() {
 	lcdEnable = lcdc&0b1000_0000 != 0
 	winTileMapArea = lcdc&0b0100_0000 != 0
 	winEnable = lcdc&0b0010_0000 != 0
