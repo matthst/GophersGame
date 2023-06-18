@@ -8,6 +8,8 @@ import (
 var (
 	keyPresses []ebiten.Key
 
+	lastCycleInput = true
+
 	FF00 uint8
 
 	actionBtns, dirBtns, interrupt                                     bool
@@ -15,6 +17,28 @@ var (
 )
 
 func Load() uint8 {
+	result := getButtonPressBits()
+
+	return FF00 + result
+}
+
+func Write(val uint8) {
+	dirBtns = val&0b1_0000 == 0
+	actionBtns = val&0b10_0000 == 0
+	FF00 = val & 0b0011_0000
+}
+
+func Cycle() uint8 {
+	buttonPressAND := getButtonPressBits() == 0b1111
+	if !buttonPressAND && lastCycleInput {
+		lastCycleInput = buttonPressAND
+		return 0x10
+	}
+	lastCycleInput = buttonPressAND
+	return 0
+}
+
+func getButtonPressBits() uint8 {
 	result := uint8(0b1111)
 	if dirBtns {
 		if aBtn {
@@ -45,23 +69,7 @@ func Load() uint8 {
 			result &= 0b0111
 		}
 	}
-
-	return FF00 + result
-}
-
-func Write(val uint8) {
-	dirBtns = val&0b1_0000 == 0
-	actionBtns = val&0b10_0000 == 0
-	FF00 = val & 0b0011_0000
-	setInterruptValue()
-}
-
-func Cycle() uint8 {
-	if interrupt {
-		interrupt = false
-		return 0b1_0000
-	}
-	return 0
+	return result
 }
 
 // SetInputState is called once during Tick update
@@ -75,13 +83,6 @@ func RunTick() {
 	rightBtn = containsKey(ebiten.KeyArrowRight)
 	startBtn = containsKey(ebiten.KeyEnter)
 	selectBtn = containsKey(ebiten.KeyBackspace)
-	setInterruptValue()
-}
-
-func setInterruptValue() {
-	if (actionBtns && (aBtn || bBtn || startBtn || selectBtn)) || (dirBtns && (upBtn || downBtn || leftBtn || rightBtn)) {
-		interrupt = true
-	}
 }
 
 func containsKey(key ebiten.Key) bool {
