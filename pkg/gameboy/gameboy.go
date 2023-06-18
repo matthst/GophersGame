@@ -3,7 +3,9 @@ package gameboy
 import (
 	"fmt"
 	"github.com/matthst/gophersgame/pkg/gameboy/Input"
+	Cartridge "github.com/matthst/gophersgame/pkg/gameboy/cartridge"
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
+	"github.com/matthst/gophersgame/pkg/gameboy/timer"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
 	"os"
 	"strings"
@@ -13,9 +15,8 @@ var (
 	audioC  components.Audio
 	wramC   components.WRAM
 	hramC   components.HRAM
-	timerC  components.Timer
 	SerialC components.Serial
-	cart    components.Cartridge
+	cart    Cartridge.Cartridge
 	Vid     video.Video
 
 	log os.File
@@ -29,7 +30,7 @@ var (
 	IME, haltMode, haltBug                         bool
 )
 
-func Bootstrap(file []uint8, serialBuilder *strings.Builder) {
+func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 	mCycleCounter = 0
 	mCycleOffset = 0
 
@@ -51,9 +52,11 @@ func Bootstrap(file []uint8, serialBuilder *strings.Builder) {
 	logFile, _ := os.OpenFile("text.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	log = *logFile
 
+	Timer.DividerClk = 0xABCC
+
 	switch file[0x0147] {
 	case 0x00, 0x01:
-		cart = components.CreateMBC1(file)
+		cart = Cartridge.CreateMBC1(file, romPath)
 	default:
 		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
@@ -62,8 +65,6 @@ func Bootstrap(file []uint8, serialBuilder *strings.Builder) {
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
-	timerC = components.Timer{TimaClock: 256}
-	timerC.Write(0xF8, 0xFF07)
 	SerialC = components.Serial{StringBuilder: serialBuilder}
 
 }
@@ -85,7 +86,7 @@ func RunOneTick() {
 
 func mCycle() {
 	IF |= Vid.MCycle()
-	IF |= timerC.Cycle()
+	IF |= Timer.Cycle()
 	IF |= SerialC.Cycle()
 	IF |= Input.Cycle()
 	mCycleCounter++
@@ -181,26 +182,26 @@ func memConWrite(val uint8, adr uint16) {
 		return // TODO implement OAM corruption bug
 
 	// I/O Registers
-	case adr == 0xFF00: // input
+	case adr == 0xFF00: // Input
 		Input.Write(val)
+	case adr == 0xFFFF: // IE
+		IE = val
+	case adr == 0xFF0F: // IF
+		IF = val
+	case adr == 0xFF4D: // KEY1
+		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF03: // serial port
 		SerialC.Write(val, adr)
 	case adr < 0xFF0F: // timer control
-		timerC.Write(val, adr)
-	case adr == 0xFF0F: // IF flag
-		IF = val
+		Timer.Write(val, adr)
 	case adr < 0xFF40: // audio + wave RAM
 		audioC.Write(val, adr)
-	case adr == 0xFF4D: //CG
-		return // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
 		Vid.WriteToIORegisters(val, adr)
 	case adr == 0xFF70:
 		return // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
 		hramC.Write(val, adr)
-	case adr == 0xFFFF:
-		IE = val
 	default:
 		//panic(fmt.Sprintf("CPU tried to read from memory address '%X', but no implementation exists.", adr))
 	}
@@ -212,6 +213,7 @@ func memConLoad(adr uint16) uint8 {
 	defer mCycle()
 
 	switch {
+
 	case adr < 0x8000: // cartridge ROM
 		return cart.Load(adr)
 	case adr < 0xA000: // VRAM
@@ -228,26 +230,27 @@ func memConLoad(adr uint16) uint8 {
 		return 0 // TODO implement OAM corruption bug
 
 	// I/O Registers
-	case adr == 0xFF00: // input
+	case adr == 0xFF00: // Input
 		return Input.Load()
+	case adr == 0xFF0F: // IF
+		return IF
+	case adr == 0xFFFF: // IE
+		return IE
+	case adr == 0xFF70: // KEY1
+		return 1 // TODO [CGB] WRAM bank switch
 	case adr < 0xFF03: // serial port
 		return SerialC.Load(adr)
 	case adr < 0xFF0F: // timer control
-		return timerC.Load(adr)
-	case adr == 0xFF0F: // IF flag
-		return IF
+		return Timer.Load(adr)
 	case adr < 0xFF40: // audio + wave RAM
 		return audioC.Load(adr)
 	case adr == 0xFF4D: //CG
 		return 1 // TODO: [CGB] KEY1 Prepare Speed Switch
 	case adr < 0xFF70: // LCD Control, VRAM stuff and more CGB Flags
 		return Vid.LoadFromIORegisters(adr)
-	case adr == 0xFF70:
-		return 1 // TODO [CGB] WRAM bank switch
 	case adr >= 0xFF80:
 		return hramC.Load(adr)
-	case adr == 0xFFFF:
-		return IE
+
 	}
 	fmt.Printf("CPU tried to write to memory address '%X', but no implementation exists. \n", adr)
 	return 0x00

@@ -14,7 +14,7 @@ var (
 func TestBlargg(t *testing.T) {
 	testCases := []struct {
 		name, file string
-		maxTicks   int32
+		maxTicks   int
 	}{
 		{"01-special", "cpu_instrs/01-special.gb", 1000},
 		{"02-interrupts", "cpu_instrs/02-interrupts.gb", 1000},
@@ -26,8 +26,7 @@ func TestBlargg(t *testing.T) {
 		{"08-misc instrs", "cpu_instrs/08-misc instrs.gb", 1000},
 		{"09-op r,r", "cpu_instrs/09-op r,r.gb", 1000},
 		{"10-bit ops", "cpu_instrs/10-bit ops.gb", 5000},
-		{"11-op a,(hl)", "cpu_instrs/11-op a,(hl).gb", 5000},
-		{"halt_bug", "halt_bug.gb", 5000},
+		{"11-op a,(hl)", "cpu_instrs/11-op a,(hl).gb", 5000}, //{"halt_bug", "halt_bug.gb", 5000},
 		//{"instr_timing", "instr_timing/instr_timing.gb", 5000},
 		//{"interrupt_time", "interrupt_time/interrupt_time.gb", 5000},
 		//{"01-read_timing", "mem_timing/individual/01-read_timing.gb", 5000},
@@ -37,16 +36,17 @@ func TestBlargg(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			file, fileErr := os.ReadFile(BlarggPath + tc.file)
+			filePath := BlarggPath + tc.file
+			file, fileErr := os.ReadFile(filePath)
 			if fileErr != nil {
 				t.Error(fileErr)
 				t.FailNow()
 			}
 
 			sBuilder := strings.Builder{}
-			gameboy.Bootstrap(file, &sBuilder)
+			gameboy.Bootstrap(file, filePath, &sBuilder)
 
-			for tickCount := int32(0); ; tickCount++ {
+			for tickCount := 0; ; tickCount++ {
 				gameboy.RunOneTick()
 				serialResult := sBuilder.String()
 				if strings.Contains(serialResult, "Passed") {

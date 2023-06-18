@@ -1,6 +1,9 @@
 package gameboy
 
-import "github.com/matthst/gophersgame/pkg/gameboy/Input"
+import (
+	"github.com/matthst/gophersgame/pkg/gameboy/Input"
+	Timer "github.com/matthst/gophersgame/pkg/gameboy/timer"
+)
 
 ///////////////////////////////////////
 //    GENERAL BYTE<->WORD HELPERS    //
@@ -205,7 +208,7 @@ func debugLoad(adr uint16) uint8 {
 	case adr < 0xFF03: // serial port
 		return 1 // TODO implement serial port
 	case adr < 0xFF0F: // timer control
-		return timerC.Load(adr)
+		return Timer.Load(adr)
 	case adr == 0xFF0F: // IF flag
 		return IF
 	case adr < 0xFF40: // audio + wave RAM
