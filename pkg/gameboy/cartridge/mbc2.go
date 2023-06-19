@@ -60,3 +60,7 @@ func (m MBC2) Load(adr uint16) uint8 {
 		return 0x00
 	}
 }
+
+func (m MBC2) GetCartType() string {
+	return "MBC2"
+}

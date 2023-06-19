@@ -26,12 +26,13 @@ func TestBlargg(t *testing.T) {
 		{"08-misc instrs", "cpu_instrs/08-misc instrs.gb", 1000},
 		{"09-op r,r", "cpu_instrs/09-op r,r.gb", 1000},
 		{"10-bit ops", "cpu_instrs/10-bit ops.gb", 5000},
-		{"11-op a,(hl)", "cpu_instrs/11-op a,(hl).gb", 5000}, //{"halt_bug", "halt_bug.gb", 5000},
-		//{"instr_timing", "instr_timing/instr_timing.gb", 5000},
-		//{"interrupt_time", "interrupt_time/interrupt_time.gb", 5000},
-		//{"01-read_timing", "mem_timing/individual/01-read_timing.gb", 5000},
-		//{"02-write_timing", "mem_timing/individual/02-write_timing.gb", 5000},
-		//{"03-modify_timing", "mem_timing/individual/03-modify_timing.gb", 5000}
+		{"11-op a,(hl)", "cpu_instrs/11-op a,(hl).gb", 5000},
+		{"halt_bug", "halt_bug.gb", 1000},
+		{"instr_timing", "instr_timing/instr_timing.gb", 1000},
+		{"interrupt_time", "interrupt_time/interrupt_time.gb", 1000},
+		{"01-read_timing", "mem_timing/individual/01-read_timing.gb", 1000},
+		{"02-write_timing", "mem_timing/individual/02-write_timing.gb", 1000},
+		{"03-modify_timing", "mem_timing/individual/03-modify_timing.gb", 1000},
 	}
 
 	for _, tc := range testCases {
@@ -50,6 +51,7 @@ func TestBlargg(t *testing.T) {
 				gameboy.RunOneTick()
 				serialResult := sBuilder.String()
 				if strings.Contains(serialResult, "Passed") {
+					t.Logf(serialResult)
 					break
 				} else if strings.Contains(serialResult, "Failed") {
 					t.Errorf(serialResult)

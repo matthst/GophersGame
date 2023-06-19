@@ -9,11 +9,12 @@ import (
 type Cartridge interface {
 	Write(val uint8, adr uint16)
 	Load(adr uint16) uint8
+	GetCartType() string
 }
 
 // getROMSize returns the number of ROM banks based on the header byte 0x0148
 func getROMSize(val uint8) uint16 {
-	return 32 * (1 << val)
+	return 1 << val
 }
 
 // getRAMSize returns the number of RAM bank based on the header byte 0x0147

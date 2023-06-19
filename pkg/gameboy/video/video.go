@@ -268,12 +268,12 @@ DrawLoop:
 
 				bgOverObj, yFlip, xFlip, palette := getObjFlags(v.oam[objId+3])
 				yOffset := uint16(ly + 16 - v.oam[objId])
-				xOffset := x + 8 - v.oam[objId+1]
+				xOffset := 7 - (x + 8 - v.oam[objId+1])
 				if yFlip {
-					yOffset = uint16(spriteHeight) - yOffset
+					yOffset = (uint16(spriteHeight) - 1) - yOffset
 				}
 				if xFlip {
-					xOffset = 8 - xOffset
+					xOffset = 7 - xOffset
 				}
 				if objSize {
 					tileIndex &= 0xFE

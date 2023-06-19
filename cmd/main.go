@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/matthst/gophersgame/pkg/gameboy"
 	"github.com/matthst/gophersgame/pkg/gameboy/video"
 	"log"
 	"os"
-	"time"
 )
 
 const RenderScale = 3
@@ -21,15 +22,14 @@ type Game struct {
 }
 
 func (g *Game) Update() error {
-	start := time.Now()
 	gameboy.RunOneTick()
-	elapsed := time.Since(start)
-	log.Printf("Tick took %s", elapsed)
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(video.RenderImage, &g.op)
+
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %v", ebiten.ActualTPS()))
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -39,7 +39,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 func main() {
 	args := os.Args[1:]
 	romPath := args[0]
-	//romPath := "test_roms/blargg/cpu_instrs/cpu_instrs.gb"
+	romPath = "test_roms/mooneye/emulator-only/mbc1/rom_1Mb.gb"
 	cartridge, _ := os.ReadFile(romPath)
 	gameboy.Bootstrap(cartridge, romPath, nil)
 

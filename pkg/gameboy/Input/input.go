@@ -1,12 +1,13 @@
 package Input
 
 import (
+	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var (
-	keyPresses []ebiten.Key
+	keyPresses, keyJustPresses []ebiten.Key
 
 	lastCycleInput = true
 
@@ -18,7 +19,6 @@ var (
 
 func Load() uint8 {
 	result := getButtonPressBits()
-
 	return FF00 + result
 }
 
@@ -29,12 +29,10 @@ func Write(val uint8) {
 }
 
 func Cycle() uint8 {
-	buttonPressAND := getButtonPressBits() == 0b1111
-	if !buttonPressAND && lastCycleInput {
-		lastCycleInput = buttonPressAND
+	if interrupt {
+		interrupt = false
 		return 0x10
 	}
-	lastCycleInput = buttonPressAND
 	return 0
 }
 
@@ -74,6 +72,12 @@ func getButtonPressBits() uint8 {
 
 // SetInputState is called once during Tick update
 func RunTick() {
+	keyJustPresses = inpututil.AppendJustPressedKeys(keyJustPresses[:0])
+	if len(keyJustPresses) != 0 {
+		fmt.Printf("Key %s just pressed \n", keyJustPresses[0].String())
+		interrupt = true
+	}
+
 	keyPresses = inpututil.AppendPressedKeys(keyPresses[:0])
 	aBtn = containsKey(ebiten.KeyA)
 	bBtn = containsKey(ebiten.KeyB)

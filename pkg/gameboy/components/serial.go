@@ -49,6 +49,8 @@ func (s *Serial) Cycle() uint8 {
 				s.serialTransferControl &= 0b1
 				if s.StringBuilder != nil {
 					s.StringBuilder.WriteByte(s.outgoingValue)
+				} else {
+					print(string(s.outgoingValue))
 				}
 				return 0b1000
 			}

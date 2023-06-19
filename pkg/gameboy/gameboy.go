@@ -3,6 +3,7 @@ package gameboy
 import (
 	"fmt"
 	"github.com/matthst/gophersgame/pkg/gameboy/Input"
+	"github.com/matthst/gophersgame/pkg/gameboy/audio"
 	Cartridge "github.com/matthst/gophersgame/pkg/gameboy/cartridge"
 	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"github.com/matthst/gophersgame/pkg/gameboy/timer"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	audioC  components.Audio
+	audioC  audio.Audio
 	wramC   components.WRAM
 	hramC   components.HRAM
 	SerialC components.Serial
@@ -52,7 +53,7 @@ func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 
 	switch file[0x0147] {
 	case 0x00, 0x01:
-		cart = Cartridge.CreateMBC1(file, romPath, false, false)
+		cart = Cartridge.CreateRomOnly(file)
 	case 0x02:
 		cart = Cartridge.CreateMBC1(file, romPath, true, false)
 	case 0x03:
@@ -65,7 +66,7 @@ func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 		panic(fmt.Sprintf("Cartridge Type '%X' not implemented", file[0x0147]))
 	}
 
-	audioC = components.Audio{}
+	audioC = audio.Audio{}
 	Vid = video.GetDmgVideo()
 	wramC = components.WRAM{}
 	hramC = components.HRAM{}
@@ -157,6 +158,8 @@ func getImmediate() uint8 {
 	val := loadAndCycle(PC)
 	if !haltBug {
 		PC++
+	} else {
+		haltBug = false
 	}
 	mCycle()
 	return val
