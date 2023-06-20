@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/matthst/gophersgame/pkg/gameboy"
+	"github.com/matthst/gophersgame/pkg/gameboy/components"
 	"os"
 	"strings"
 	"testing"
@@ -46,6 +47,7 @@ func TestBlargg(t *testing.T) {
 
 			sBuilder := strings.Builder{}
 			gameboy.Bootstrap(file, filePath, &sBuilder)
+			components.SerialEnabled = true
 
 			for tickCount := 0; ; tickCount++ {
 				gameboy.RunOneTick()

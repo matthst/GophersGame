@@ -14,6 +14,7 @@ type Serial struct {
 }
 
 var (
+	SerialEnabled = false
 	clockModulo   = 128         // TODO [CGB] add clockspeed change
 	incomingValue = uint8(0xFF) // TODO [MISC] actually inject data
 )
@@ -37,7 +38,7 @@ func (s *Serial) Write(val uint8, adr uint16) {
 }
 
 func (s *Serial) Cycle() uint8 {
-	if s.transferActive {
+	if SerialEnabled && s.transferActive { // TODO Fix this
 		s.clockCounter++
 		if s.clockCounter == clockModulo {
 			s.clockCounter = 0

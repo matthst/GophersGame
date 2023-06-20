@@ -28,13 +28,15 @@ var (
 		color.RGBA{R: 0x66, G: 0x66, B: 0x4d},
 		color.RGBA{R: 0x27, G: 0x27, B: 0x15}}
 
-	RenderImage *ebiten.Image
+	CurrentFrame *ebiten.Image
+	lastFrame    *ebiten.Image
 
 	scanLineCycle int
 
+	windowLineCounter                               uint16
 	scx, scy, wx, wy, ly, lyc, lcdc, stat, statMode uint8
 
-	statBlock, lycEqualsLY bool
+	statBlock, lycEqualsLY, startedWindowDrawing bool
 
 	// LCDC bool stuff
 	lcdEnable, winTileMapArea, winEnable, bgWinAddressingMode, bgTileMapArea, objSize, objEnable, bgWinEnable bool
@@ -47,7 +49,10 @@ func GetDmgVideo() Video {
 		obPalette1: monochromePalette,
 	}
 	ly = 91
-	RenderImage = ebiten.NewImage(160, 144)
+	lastFrame = ebiten.NewImage(160, 144)
+	CurrentFrame = ebiten.NewImage(160, 144)
+	lastFrame.Fill(monochromePalette[0])
+	CurrentFrame.Fill(monochromePalette[0])
 	vid.WriteToIORegisters(0x91, 0xFF40)
 	vid.WriteToIORegisters(0x81, 0xFF41)
 	vid.WriteToIORegisters(0xFC, 0xFF47)
@@ -171,8 +176,11 @@ func (v *Video) MCycle() uint8 {
 		ly++
 
 		if ly == 144 { // MODE 1, VBLANK
+			swapFrames()
 			statMode = 1
 			statResult = 1
+			windowLineCounter = 0
+			startedWindowDrawing = false
 		} else if ly == 154 {
 			ly = 0
 		}
@@ -184,6 +192,7 @@ func (v *Video) MCycle() uint8 {
 			statMode = 2
 		case scanLineCycle == 20: // MODE 3, transfer to LCD controller
 			statMode = 3
+		case scanLineCycle == 40:
 			v.drawScanLine()
 		case scanLineCycle == 63: // MODE 0, HBLANK
 			statMode = 0
@@ -220,10 +229,18 @@ func (v *Video) drawScanLine() {
 	}
 
 	//setup for BG and Win
-	ySCYOffset, yWYOffset := uint16(ly+scy), uint16(ly-wy)
-	bgMapBaseAddress := (ySCYOffset / 8) * 32 //background map base address with right row selected
-	winMapBaseAddress := (yWYOffset / 8) * 32 //window map base address with right row selected
-	windowVisible := winEnable && wy <= ly
+	windowVisible := winEnable && wy <= ly && wx < 166
+	if windowVisible {
+		windowLineCounter++
+		if !startedWindowDrawing {
+			startedWindowDrawing = true
+			windowLineCounter = uint16(ly - wy)
+		}
+	}
+
+	ySCYOffset := uint16(ly + scy)
+	bgMapBaseAddress := (ySCYOffset / 8) * 32         //background map base address with right row selected
+	winMapBaseAddress := (windowLineCounter / 8) * 32 //window map base address with right row selected
 	if bgTileMapArea {
 		bgMapBaseAddress += 0x0400 //switch bg map to second map if needed
 	}
@@ -241,40 +258,43 @@ func (v *Video) drawScanLine() {
 
 		// grab objects for drawing, up to 10
 		for oamIndex, selectIndex := 0, 0; oamIndex < 160 && selectIndex < 10; oamIndex += 4 {
-			if v.oam[oamIndex] <= ly+16 && v.oam[oamIndex]+spriteHeight >= ly+16 {
+			if v.oam[oamIndex] <= ly+16 && v.oam[oamIndex]+spriteHeight > ly+16 {
 				objIds = append(objIds, oamIndex)
 				selectIndex++
 			}
 		}
 
 		//sort the chosen objects by their x coordinate to make iterating over them faster
-		sort.Slice(objIds, func(a, b int) bool {
-			return v.oam[a+1] < v.oam[b+1]
+		sort.SliceStable(objIds, func(a, b int) bool {
+			return v.oam[objIds[a]+1] < v.oam[objIds[b]+1] || (v.oam[objIds[a]+1] == v.oam[objIds[b]+1] && objIds[a] < objIds[b])
 		})
 	}
 
 DrawLoop:
 	for x := uint8(0); x < 160; x++ {
+		bgOverObj := false
+
 		if objEnable { //OBJ
 			for _, objId := range objIds {
-				if v.oam[objId+1]+8 < x+8 { // obj is before x
+				bgOverObj = false
+				if x >= v.oam[objId+1] { // obj is before x
 					continue
-				}
-				if v.oam[objId+1] > x+8 { // obj is after x
+				} else if x+8 < v.oam[objId+1] { // obj is after x
 					break
 				}
 
-				tileIndex := uint16(v.oam[objId+2])
-
-				bgOverObj, yFlip, xFlip, palette := getObjFlags(v.oam[objId+3])
-				yOffset := uint16(ly + 16 - v.oam[objId])
-				xOffset := 7 - (x + 8 - v.oam[objId+1])
+				var yFlip, xFlip, palette bool
+				bgOverObj, yFlip, xFlip, palette = getObjFlags(v.oam[objId+3])
+				yOffset := uint16((ly + 16 - v.oam[objId]) % spriteHeight)
+				xOffset := 7 - ((x + 8 - v.oam[objId+1]) % 8)
 				if yFlip {
 					yOffset = (uint16(spriteHeight) - 1) - yOffset
 				}
 				if xFlip {
 					xOffset = 7 - xOffset
 				}
+
+				tileIndex := uint16(v.oam[objId+2])
 				if objSize {
 					tileIndex &= 0xFE
 				}
@@ -288,32 +308,41 @@ DrawLoop:
 					} else {
 						paletteRef = &v.obPalette0
 					}
-					RenderImage.Set(int(x), int(ly), paletteRef[colorIndex])
-					if !bgOverObj {
-						continue DrawLoop // go to next pixel
+					lastFrame.Set(int(x), int(ly), paletteRef[colorIndex])
+					if bgOverObj {
+						break
 					}
+					continue DrawLoop // go to next pixel
+				} else {
+					bgOverObj = false
 				}
 			}
 		}
 
 		// BG and Window enable TODO [CGB] bg and window priority
 		if !bgWinEnable {
-			RenderImage.Set(int(x), int(ly), color.White)
+			lastFrame.Set(int(x), int(ly), monochromePalette[0b00])
 			continue
 		}
 
 		//Window
-		if windowVisible && wx+7 <= x {
-			xWXOffset := uint16(x - wx + 7)
-			colorIndex := v.getPixelFromMap(winMapBaseAddress, xWXOffset, yWYOffset)
-			RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
+		if windowVisible && wx < x+8 {
+			xWXOffset := uint16(x + 7 - wx)
+			colorIndex := v.getPixelFromMap(winMapBaseAddress, xWXOffset, windowLineCounter)
+			if bgOverObj && colorIndex == 0 {
+				continue
+			}
+			lastFrame.Set(int(x), int(ly), v.bgPalette[colorIndex])
 			continue
 		}
 
 		//BG
 		xSCXOffset := uint16(x + scx)
 		colorIndex := v.getPixelFromMap(bgMapBaseAddress, xSCXOffset, ySCYOffset)
-		RenderImage.Set(int(x), int(ly), v.bgPalette[colorIndex])
+		if bgOverObj && colorIndex == 0 {
+			continue
+		}
+		lastFrame.Set(int(x), int(ly), v.bgPalette[colorIndex])
 	}
 }
 
@@ -352,4 +381,10 @@ func updatePalette(val uint8, palette *[4]color.Color) { //TODO [CGB] Color pale
 	for i := 0; i < 4; i++ {
 		palette[i] = monochromePalette[((val >> (i * 2)) & 0b11)]
 	}
+}
+
+func swapFrames() {
+	swap := CurrentFrame
+	CurrentFrame = lastFrame
+	lastFrame = swap
 }

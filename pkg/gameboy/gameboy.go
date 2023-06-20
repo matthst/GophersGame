@@ -267,7 +267,7 @@ func loadFromMemoryBus(adr uint16) uint8 {
 		return IF | 0b1110_0000
 	case adr == 0xFFFF: // IE
 		return IE
-	case adr == 0xFF70: // KEY1
+	case adr == 0xFF70: // WRAM bank
 		return 1 // TODO [CGB] WRAM bank switch
 	case adr < 0xFF03: // serial port
 		return SerialC.Load(adr)

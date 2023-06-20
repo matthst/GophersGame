@@ -1,15 +1,12 @@
 package Input
 
 import (
-	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var (
 	keyPresses, keyJustPresses []ebiten.Key
-
-	lastCycleInput = true
 
 	FF00 uint8
 
@@ -38,7 +35,7 @@ func Cycle() uint8 {
 
 func getButtonPressBits() uint8 {
 	result := uint8(0b1111)
-	if dirBtns {
+	if actionBtns {
 		if aBtn {
 			result &= 0b1110
 		}
@@ -51,9 +48,7 @@ func getButtonPressBits() uint8 {
 		if startBtn {
 			result &= 0b0111
 		}
-	}
-
-	if actionBtns {
+	} else if dirBtns {
 		if rightBtn {
 			result &= 0b1110
 		}
@@ -72,16 +67,12 @@ func getButtonPressBits() uint8 {
 
 // SetInputState is called once during Tick update
 func RunTick() {
-	keyJustPresses = inpututil.AppendJustPressedKeys(keyJustPresses[:0])
-	if len(keyJustPresses) != 0 {
-		fmt.Printf("Key %s just pressed \n", keyJustPresses[0].String())
-		interrupt = true
-	}
+	interrupt = len(inpututil.AppendJustPressedKeys(keyJustPresses[:0])) != 0
 
 	keyPresses = inpututil.AppendPressedKeys(keyPresses[:0])
 	aBtn = containsKey(ebiten.KeyA)
 	bBtn = containsKey(ebiten.KeyB)
-	upBtn = containsKey(ebiten.KeyUp)
+	upBtn = containsKey(ebiten.KeyArrowUp)
 	downBtn = containsKey(ebiten.KeyArrowDown)
 	leftBtn = containsKey(ebiten.KeyArrowLeft)
 	rightBtn = containsKey(ebiten.KeyArrowRight)
