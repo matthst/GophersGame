@@ -52,8 +52,10 @@ func Bootstrap(file []uint8, romPath string, serialBuilder *strings.Builder) {
 	Timer.DividerClk = 0xABCC
 
 	switch file[0x0147] {
-	case 0x00, 0x01:
+	case 0x00:
 		cart = Cartridge.CreateRomOnly(file)
+	case 0x01:
+		cart = Cartridge.CreateMBC1(file, romPath, false, false)
 	case 0x02:
 		cart = Cartridge.CreateMBC1(file, romPath, true, false)
 	case 0x03:

@@ -39,7 +39,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 func main() {
 	args := os.Args[1:]
 	romPath := args[0]
-	//romPath = "test_roms/mooneye/acceptance/timer/tim00_div_trigger.gb"
 	cartridge, _ := os.ReadFile(romPath)
 	gameboy.Bootstrap(cartridge, romPath, nil)
 
