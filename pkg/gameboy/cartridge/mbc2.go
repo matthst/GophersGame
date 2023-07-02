@@ -7,8 +7,8 @@ type MBC2 struct {
 	ramEnabled, saveEnabled  bool
 }
 
-func CreateMBC2(rom []uint8, romPath string, batteryCart bool) MBC2 {
-	var romBankCount uint16 = getROMSize(rom[0x0148])
+func CreateMBC2(rom []uint8, romPath string, batteryCart bool) *MBC2 {
+	romBankCount := getROMSize(rom[0x0148])
 
 	savePath := ""
 	var ram []uint8
@@ -18,7 +18,7 @@ func CreateMBC2(rom []uint8, romPath string, batteryCart bool) MBC2 {
 		ram = make([]uint8, 512)
 	}
 
-	return MBC2{
+	return &MBC2{
 		rom:             rom,
 		ram:             ram,
 		romBank:         1,
@@ -28,7 +28,7 @@ func CreateMBC2(rom []uint8, romPath string, batteryCart bool) MBC2 {
 		saveEnabled:     batteryCart}
 }
 
-func (m MBC2) Write(val uint8, adr uint16) {
+func (m *MBC2) Write(val uint8, adr uint16) {
 	if adr < 0x4000 {
 		if adr&0b1_0000_0000 != 0 { // LSB of upper byte of adr word is set
 			m.romBank = uint16(val & 0b1111)
@@ -48,7 +48,7 @@ func (m MBC2) Write(val uint8, adr uint16) {
 	}
 }
 
-func (m MBC2) Load(adr uint16) uint8 {
+func (m *MBC2) Load(adr uint16) uint8 {
 	switch {
 	case adr < 0x4000:
 		return m.rom[adr]
@@ -61,6 +61,6 @@ func (m MBC2) Load(adr uint16) uint8 {
 	}
 }
 
-func (m MBC2) GetCartType() string {
+func (m *MBC2) GetCartType() string {
 	return "MBC2"
 }

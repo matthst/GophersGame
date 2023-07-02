@@ -14,7 +14,7 @@ type Cartridge interface {
 
 // getROMSize returns the number of ROM banks based on the header byte 0x0148
 func getROMSize(val uint8) uint16 {
-	return 1 << val
+	return 2 << val
 }
 
 // getRAMSize returns the number of RAM bank based on the header byte 0x0147
@@ -57,6 +57,6 @@ func createOrLoadSaveFile(romPath string, ramSize int) (string, []uint8) {
 }
 
 func writeToSaveFile(savePath string, ram []uint8) {
-	saveFile, _ := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	_, _ = saveFile.Write(ram)
+	//saveFile, _ := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	//_, _ = saveFile.Write(ram)
 }
